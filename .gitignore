@@ -1,0 +1,11 @@
+Pack\*
+*.exe
+Pack.7z
+Pack.zip
+*.pyc
+.vscode
+.vscode/tasks.json
+.vscode/c_cpp_properties.json
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/c_cpp_properties.json
