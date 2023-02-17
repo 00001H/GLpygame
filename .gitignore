@@ -3,3 +3,4 @@
 libs
 libs/*
 *.exe
+stb_image.h
