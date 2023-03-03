@@ -111,9 +111,6 @@ namespace pygame{
                 camera = Camera(pos,yaw,pitch,roll);
             }
     };
-    typedef std::shared_ptr<Context3D> pContext3D;
-    pContext3D mkC3d(float fov=70.0f,float near=0.1f,float far=100.0f,float screenw=1920.0f,float screenh=1080.0f){
-        return std::make_shared<Context3D>(fov,near,far,screenw,screenh);
-    }
+    typedef Context3D* pContext3D;
 }
 #endif

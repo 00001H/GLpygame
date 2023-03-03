@@ -9,7 +9,6 @@ uniform float bright;
 uniform float alpha;
 
 void main(){
-    vec2 texcc = texc;
     vec4 fcol = texture(tex,texc);
     fragcolor = vec4(fcol.rgb*bright,fcol.a*alpha);
 }

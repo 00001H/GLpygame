@@ -5,7 +5,7 @@ namespace pygame{
     using Kernal = glm::mat3;
     Shader krnl;
     void ppInit(){
-        krnl.program = loadprogram(L"rsrc/2d_textured_vertex.glsl",L"rsrc/kernalfs.glsl");
+        krnl.program = loadprogram("rsrc/2d_textured_vertex.glsl","rsrc/kernalfs.glsl");
     }
     void ppApply(prTexture src, const Framebuffer& dst, Shader& shd=texture_shader, float sz=1.0f){
         dst.bind();

@@ -6,7 +6,7 @@
 #include<iostream>
 #include<pygame.hpp>
 #include<cppp.hpp>
-using std::wstring;
+using std::string;
 using std::vector;
 using std::any_cast;
 using namespace pygame;
@@ -50,15 +50,15 @@ static_assert(modudist(0,10,11)==1);
 int SW = 1920;
 int SH = 1080;
 #define GL_DEBUG_CONTEXT false
-std::wstring surr(bool apply, std::wstring inside){
-    if(apply)return L"["+inside+L"]";
-    return L" "+inside+L" ";
+std::string surr(bool apply, std::string inside){
+    if(apply)return "["+inside+"]";
+    return " "+inside+" ";
 }
-std::wstring seltex(int i){
-    std::wstring a = surr(i==0,L"$");
-    std::wstring b = surr(i==1,L"$");
-    std::wstring c = surr(i==2,L"$");
-    return cppp::subst<>(L"|$ $ $|",{a,b,c});
+std::string seltex(int i){
+    std::string a = surr(i==0,"$");
+    std::string b = surr(i==1,"$");
+    std::string c = surr(i==2,"$");
+    return cppp::subst<>("|$ $ $|",{a,b,c});
 }
 int main(){
     std::shared_ptr<Chlib> pcharlib=nullptr;
@@ -88,7 +88,7 @@ int main(){
     
     pygame::draw_made_with_glpy(win);
     stbi_set_flip_vertically_on_load(true);
-    Font& DEFAULT_FONT = charlib.getfont(L"Cnew","rsrc/courier_new.ttf");
+    Font& DEFAULT_FONT = charlib.getfont("Cnew","rsrc/courier_new.ttf");
     DEFAULT_FONT.set_dimensions(0,45);
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
@@ -104,7 +104,7 @@ int main(){
     ctex.top.brightness = 0.4;
     CubeTexture floortex = CubeTexture(fteximg);
     Cube floorcube(glm::vec3(-25,-1,-25),50,1,50);
-    ctx = mkC3d(70.0f,0.1f,100.0f,win.getWidth(),win.getHeight());
+    ctx = new Context3D(70.0f,0.1f,100.0f,win.getWidth(),win.getHeight());
     ctx->init_camera(glm::vec3(2.0,4.0,7.0));
     auto& camera = ctx->camera;
     camera.pitch = -5;
@@ -125,7 +125,7 @@ int main(){
     int mind=0;
     int rota=0;
     Scene scene(1920,1080);
-    std::wstring kr0,kr1,kr2;
+    std::string kr0,kr1,kr2;
     int krlis[11]{0};
     krlis[4] = 8;
     krlis[6] = 3;
@@ -259,13 +259,13 @@ int main(){
         }
         scene.applyKernel(pygame::Kernal{krlis[0],krlis[1],krlis[2],krlis[3],krlis[4],krlis[5],krlis[8],krlis[9],krlis[10]}/float(krlis[7]),float(krlis[6])/1000.0f);
         scene.draw({0.0f,0.0f},SW,SH);
-        pygame::draw_text(DEFAULT_FONT,L"GLpygame 3D demo(ver.0226rc1) all pasterights reserved",{10.0,10.0},1.0);
-        kr0 = cppp::subst<int>(seltex(mmsel),{krlis[0],krlis[1],krlis[2]})+L" ^ ";
-        kr1 = cppp::subst<int>(seltex(mmsel-3),{krlis[3],krlis[4],krlis[5]})+surr(mmsel==6,std::to_wstring(krlis[6]))+surr(mmsel==7,std::to_wstring(krlis[7]));
-        kr2 = cppp::subst<int>(seltex(mmsel-8),{krlis[8],krlis[9],krlis[10]})+L" v ";
-        pygame::draw_text(DEFAULT_FONT,kr0,{30.0,125.0},1.0);
-        pygame::draw_text(DEFAULT_FONT,kr1,{30.0,175.0},1.0);
-        pygame::draw_text(DEFAULT_FONT,kr2,{30.0,225.0},1.0);
+        pygame::draw_text(DEFAULT_FONT,"GLpygame 3D demo(ver.0226rc1) all pasterights reserved",{10.0,10.0});
+        kr0 = cppp::subst<int>(seltex(mmsel),{krlis[0],krlis[1],krlis[2]})+" ^ ";
+        kr1 = cppp::subst<int>(seltex(mmsel-3),{krlis[3],krlis[4],krlis[5]})+surr(mmsel==6,std::to_string(krlis[6]))+surr(mmsel==7,std::to_string(krlis[7]));
+        kr2 = cppp::subst<int>(seltex(mmsel-8),{krlis[8],krlis[9],krlis[10]})+" v ";
+        pygame::draw_text(DEFAULT_FONT,kr0,{30.0,125.0});
+        pygame::draw_text(DEFAULT_FONT,kr1,{30.0,175.0});
+        pygame::draw_text(DEFAULT_FONT,kr2,{30.0,225.0});
         win.swapBuffers();
         clk.tick(60);
     }

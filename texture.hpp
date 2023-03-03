@@ -14,7 +14,10 @@ namespace pygame{
             GLuint texture=0;
             GLuint64 texturehandle;
         public:
+            Texture(Texture&&);//TODO
+            Texture& operator =(Texture&&);//TODO
             Texture(const Texture&) = delete;
+            Texture& operator =(const Texture&) = delete;
             Texture(
                 unsigned char *data=nullptr,
                 GLsizei width=1,
@@ -59,6 +62,9 @@ namespace pygame{
             }
             float getHeight() const{
                 return height;
+            }
+            glm::vec2 getSize() const{
+                return {width,height};
             }
             float scalingToFitInside(float side_length) const{
                 return side_length/glm::max(getHeight(),getWidth());

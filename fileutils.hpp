@@ -7,13 +7,13 @@
 
 namespace pygame{
 
-    std::wstring loadStringFile(const std::wstring fname){
-        std::wifstream file;
+    std::string loadStringFile(const std::string fname){
+        std::ifstream file;
         file.open(fname.c_str());
-        std::wstring st;
-        wchar_t ch;
+        std::string st;
+        char ch;
         if(!file){
-            std::wcerr << fname << std::endl;
+            std::cerr << fname << std::endl;
             throw std::logic_error("Error: file does not exist");
         }
         while(!file.eof()){
@@ -23,9 +23,9 @@ namespace pygame{
         file.close();
         return st;
     }
-    bool fileexists(std::wstring filename){
+    bool fileexists(std::string filename){
         struct stat trash;
-        return wstat(filename.c_str(),&trash) != -1;
+        return stat(filename.c_str(),&trash) != -1;
     }
     
 }

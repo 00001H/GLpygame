@@ -15,7 +15,6 @@ namespace _ft{
     #include FT_FREETYPE_H
 }
 #define FT_Int32 _ft::FT_Int32
-#define FT_RENDER_MODE_LIGHT _ft::FT_RENDER_MODE_LIGHT
 namespace pygame{
     class FTError:public std::logic_error{
         using std::logic_error::logic_error;
@@ -24,29 +23,33 @@ namespace pygame{
         Texture* tex;
         int xoffset;
         int yoffset;
-        int distance;
+        float distance;
     };
     class _Font{
         public:
             _ft::FT_Face face;
             int _id;
-            std::unordered_map<wchar_t,Ch_Texture> charmap;
+            std::unordered_map<char,Ch_Texture> charmap;
             void set_dimensions(_ft::FT_UInt w,_ft::FT_UInt h){
                 _ft::FT_Set_Pixel_Sizes(face,w,h);
+                charmap.clear();
             }
-            Ch_Texture loadChar(wchar_t ch){
+            float getHeight() const{
+                return float(face->size->metrics.height)/64.0f;
+            }
+            Ch_Texture loadChar(char ch){
                 if(charmap.count(ch)){
                     return charmap[ch];
                 }
                 int x;
-                if((x = _ft::FT_Load_Char(face,ch,FT_LOAD_RENDER|FT_LOAD_TARGET_LIGHT))){
-                    std::wcerr << L"Loadchar failed:" << ch << L" " << x << std::endl;
+                if((x = _ft::FT_Load_Char(face,ch,FT_LOAD_RENDER))){
+                    std::cerr << "Loadchar failed:" << ch << " " << x << std::endl;
                     throw FTError("Unable to load chararcter.");
                 }
                 auto glyf = face->glyph;
                 auto bmap = glyf->bitmap;
                 Texture* t;
-                unsigned char colorbyte = 0;
+                static unsigned char colorbyte = 0;//doesn't get destroyed on function exit
                 if(bmap.width==0 && bmap.rows==0){
                     t = new Texture(&colorbyte,1,1,GL_RED,GL_RED,GL_NEAREST,GL_NEAREST,false);
                 }else{
@@ -54,9 +57,9 @@ namespace pygame{
                 }
                 Ch_Texture chtx;
                 chtx.tex = t;
-                chtx.xoffset = face->glyph->bitmap_left;
-                chtx.yoffset = face->glyph->bitmap_top;
-                chtx.distance = face->glyph->advance.x;
+                chtx.xoffset = glyf->bitmap_left;
+                chtx.yoffset = glyf->bitmap_top;
+                chtx.distance = float(glyf->advance.x)/64.0f;
                 charmap.emplace(ch,chtx);
                 return chtx;
             }
@@ -81,6 +84,9 @@ namespace pygame{
             ~Font(){
                 destroy();
             }
+            float getHeight() const{
+                return pimpl->getHeight();
+            }
             void set_dimensions(_ft::FT_UInt w,_ft::FT_UInt h){
                 if(pimpl!=nullptr)pimpl->set_dimensions(w,h);
                 else throw std::bad_optional_access();
@@ -90,7 +96,7 @@ namespace pygame{
                     pimpl->done();
                 }
             }
-            Ch_Texture loadChar(wchar_t ch){
+            Ch_Texture loadChar(char ch){
                 if(pimpl!=nullptr)return pimpl->loadChar(ch);
                 else throw std::bad_optional_access();
             }
@@ -100,17 +106,17 @@ namespace pygame{
             size_t _font_id=0;
         public:
             _ft::FT_Library ftlib;
-            cppp::Dict<std::wstring, Font> fonts;
+            cppp::Dict<std::string, Font> fonts;
             Chlib(){
                 if(_ft::FT_Init_FreeType(&ftlib)){
                     throw FTError("FreeType initialization failed!");
                 }
             }
-            Font& loadfont(std::wstring name,std::wstring filepat){
+            Font& loadfont(std::string name,std::string filepat){
                 std::filesystem::path x(filepat);
                 return getfont(name,x.string().c_str());
             }
-            Font& getfont(std::wstring name,const char *orfile=nullptr){
+            Font& getfont(std::string name,const char *orfile=nullptr){
                 if(fonts.has(name)){
                     return fonts.get(name);
                 }else if(orfile==nullptr){
@@ -136,5 +142,4 @@ namespace std{
     };
 }
 #undef FT_Int32
-#undef FT_RENDER_MODE_LIGHT
 #endif//CHLIBS_H

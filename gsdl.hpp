@@ -32,7 +32,10 @@ namespace pygame{
         Point a;
         Point b;
         Line(Point a,Point b) : a(a), b(b) {}
-        float distance() const{
+        operator glm::vec2() const{
+            return b-a;
+        }
+        float length() const{
             return glm::distance(a,b);
         }
     };
@@ -49,13 +52,19 @@ namespace pygame{
         float h;
         Rect() noexcept = default;
         Rect(float x,float y,float w,float h) : x(x),y(y),w(w),h(h) {}
-        bool colliderect(const Rect &other) const{
+        Rect reposition(Point origin){
+            Rect nw = *this;
+            nw.x = origin.x;
+            nw.y = origin.y;
+            return nw;
+        }
+        bool colliderect(Rect other) const{
             return ((x<(other.y+other.w))//left is lefter than other right
                   &&((x+w)>(other.x))//right is righter than other left
                   &&(y<(other.y+other.h))//top is topper than other bottom//note:bigger y = lower
                   &&((y+h)>(other.y)));//bottom is bottomer than other top
         }
-        bool collidepoint(const Point& point) const{
+        bool collidepoint(Point point) const{
             return (((point.x)<(x+w))//lefter than right
                   &&((point.x)>x)//righter than left
                   &&((point.y)<(y+h))//topper than bottom
@@ -83,7 +92,7 @@ namespace pygame{
             prTexture bottom;
             prTexture left;
             prTexture right;
-            CubeTexture(Texture* face) : 
+            CubeTexture(prTexture face) : 
             front(face),back(face),top(face),bottom(face),
             left(face),right(face){}
     };
@@ -152,10 +161,10 @@ namespace pygame{
                 glBindFramebuffer(target,0);
             }
     };
-    GLuint loadprogram(const wchar_t*vs,const wchar_t*fs){
+    GLuint loadprogram(const char*vs,const char*fs){
         using namespace std;
         GLint compiled;
-        std::wstring vsrcutf16 = loadStringFile(vs);
+        std::string vsrcutf16 = loadStringFile(vs);
         std::string vtxsrc(vsrcutf16.begin(),vsrcutf16.end());
         const char *vtxsrc_cstr = vtxsrc.c_str();
         GLuint vshad = glCreateShader(GL_VERTEX_SHADER);
@@ -170,7 +179,7 @@ namespace pygame{
             throw vshad_compilation_failed(infolog);
         }
 
-        std::wstring fsrcutf16 = loadStringFile(fs);
+        std::string fsrcutf16 = loadStringFile(fs);
         std::string frgsrc(fsrcutf16.begin(),fsrcutf16.end());
         const char *frgsrc_cstr = frgsrc.c_str();
         GLuint fshad = glCreateShader(GL_FRAGMENT_SHADER);
@@ -225,16 +234,28 @@ namespace pygame{
         1.0,1.0,1.0,1.0,
         1.0,0.0,1.0,0.0
     };
+    using namespace std::literals;
+    GLuint rsrcload(std::string x,std::string y){
+        cppp::dirpath p=x,q=y;
+        cppp::dirpath rp="rsrc"s/p,rq="rsrc"s/q;
+        std::string pstr=rp.string(),qstr=rq.string();
+        return loadprogram(pstr.c_str(),qstr.c_str());
+    }
+    #ifndef GLPY_PACKED
+    #define GLPY_PLOAD rsrcload
+    #else
+    #define GLPY_PLOAD GLPY_PLOAD_PACKED
+    #endif
     void gllInit(){
         if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
             throw error("GLAD load failed! Did your forget to bind an OpenGL context?");
         }
-        text_shader.program = loadprogram(L"rsrc/2d_textured_vertex.glsl",L"rsrc/text_rendering_fragment.glsl");
-        texture_shader.program = loadprogram(L"rsrc/2d_textured_vertex.glsl",L"rsrc/texture_sampling_fragment.glsl");
-        fill_shader.program = loadprogram(L"rsrc/2d_colored_vertex.glsl",L"rsrc/fill_fragment.glsl");
-        single_color_shader.program = loadprogram(L"rsrc/2d_vertex.glsl",L"rsrc/single_color_fragment.glsl");
-        texture_3d_shader.program = loadprogram(L"rsrc/3d_textured_vertex.glsl",L"rsrc/3d_textured_fragment.glsl");
-
+        text_shader.program = GLPY_PLOAD("2d_textured_vertex.glsl","text_rendering_fragment.glsl");
+        texture_shader.program = GLPY_PLOAD("2d_textured_vertex.glsl","texture_sampling_fragment.glsl");
+        fill_shader.program = GLPY_PLOAD("2d_colored_vertex.glsl","fill_fragment.glsl");
+        single_color_shader.program = GLPY_PLOAD("2d_vertex.glsl","single_color_fragment.glsl");
+        texture_3d_shader.program = GLPY_PLOAD("3d_textured_vertex.glsl","3d_textured_fragment.glsl");
+        #undef GLPY_PLOAD
         glGenVertexArrays(1,&texture_vao);
         glGenBuffers(1,&texture_vbo);
         glBindVertexArray(texture_vao);
@@ -265,7 +286,12 @@ namespace pygame{
         glGenBuffers(1,&colored_polygon_vbo);
         glBindVertexArray(colored_polygon_vao);
         glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*64,nullptr,GL_DYNAMIC_DRAW);
+
+        //2(xy) = 2/vertex
+        //let's support 40 vtx
+        //that's 80*float
+
+        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*80,nullptr,GL_DYNAMIC_DRAW);
         glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(GLfloat),(void*)0);
         glEnableVertexAttribArray(0);
 
@@ -298,17 +324,21 @@ namespace pygame{
         glDeleteBuffers(1,&fill_vbo);
         glDeleteBuffers(1,&texture_3d_vbo);
     }
+    void invoke_shader(float* data, unsigned int data_cnt, unsigned int vert_cnt, Shader& shdr, GLenum drawmode=GL_TRIANGLE_STRIP, GLuint vao=colored_polygon_vao, GLuint vbo=colored_polygon_vbo){
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER,vbo);
+        glBufferSubData(GL_ARRAY_BUFFER,0,data_cnt*sizeof(float),data);
+        glUseProgram(shdr.program);
+        glDrawArrays(drawmode,0,vert_cnt);
+    }
     void blit(prTexture image,Point location,double size,float rotation=0.0f,
     Shader& shader=texture_shader){
-        glBindVertexArray(texture_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
         float vtx[16] = {
             0.0                     ,0.0                      ,0.0,1.0,
             0.0                     ,(float)image->getHeight(),0.0,0.0,
             (float)image->getWidth(),0.0                      ,1.0,1.0,
             (float)image->getWidth(),(float)image->getHeight(),1.0,0.0
         };
-        glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
         GLint imglocation = shader.getLocation("img");
         GLint poslocation = shader.getLocation("position");
         GLint sizelocation = shader.getLocation("size");
@@ -322,28 +352,27 @@ namespace pygame{
         glUniform1f(rotationlocation,rotation);
         glUniform1f(transparlocation,image.alpha);
         glUniform1f(brightnesslocation,image.brightness);
-        glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+        invoke_shader(vtx,sizeof(vtx)/sizeof(float),4,shader,GL_TRIANGLE_STRIP,texture_vao,texture_vbo);
     }
     enum class align{
-        LEFT,CENTER,RIGHT,
-        TOP,BOTTOM
+        LEFT,CENTER,RIGHT
     };
-    Rect get_text_rect(Font& font,std::wstring text,Point position,float size,
+    Rect get_text_rect(Font& font,std::string text,Point position,
                    align algn=align::LEFT){
-        float textwidth=0.0;
-        float topchrs=0.0;
-        float bottomchrs=0.0;
-        float xdelta=0.0;
+        float textwidth=0.0f;
+        float topchrs=0.0f;
+        float bottomchrs=0.0f;
+        float xdelta=0.0f;
         Ch_Texture ch;
-        for(wchar_t chr : text){
+        for(char chr : text){
             try{
                 ch = font.loadChar(chr);
             }catch(FTError&){
                 ch = font.loadChar(L'?');
             }
-            textwidth += (ch.distance/64.0)*size;
-            topchrs = std::max(topchrs,size*ch.yoffset);
-            bottomchrs = std::min(bottomchrs,size*(ch.yoffset-ch.tex->getHeight()));
+            textwidth += ch.distance;
+            topchrs = std::max<float>(topchrs,ch.yoffset);
+            bottomchrs = std::min(bottomchrs,ch.yoffset-ch.tex->getHeight());
         }
         if(algn==align::CENTER){
             xdelta -= textwidth/2.0;
@@ -355,27 +384,27 @@ namespace pygame{
         return Rect(position.x+xdelta,position.y,textwidth,topchrs-bottomchrs);
     }
     
-    Rect draw_text(Font& font,std::wstring text,Point position,float size,
+    Rect draw_singleline_text(Font& font,std::string text,Point position,
                    Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT){
         float topchrs=0.0;
         Ch_Texture ch;
-        for(wchar_t chr : text){
+        for(char chr : text){
             ch = font.loadChar(chr);
-            topchrs = std::max(topchrs,size*ch.yoffset);
+            topchrs = std::max<float>(topchrs,ch.yoffset);
         }
         glUseProgram(text_shader.program);
         glUniform4f(text_shader.getLocation("color"),color.x,color.y,color.z,color.w);
-        glUniform1f(text_shader.getLocation("size"),size);
+        glUniform1f(text_shader.getLocation("size"),1.0f);
         glUniform1i(text_shader.getLocation("rotation"),0);
         glBindVertexArray(texture_vao);
         glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
         GLuint imgloc = text_shader.getLocation("img");
         Point charpos,posytion = position;
-        Rect tr = get_text_rect(font,text,position,size,algn);
+        Rect tr = get_text_rect(font,text,position,algn);
         posytion.x = tr.x;
         Point sz;
         GLint poslocation = text_shader.getLocation("position");
-        for(wchar_t chr : text){
+        for(char chr : text){
             try{
                 ch = font.loadChar(chr);
             }catch(FTError&){
@@ -391,17 +420,54 @@ namespace pygame{
             };
             glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             charpos = posytion;
-            charpos.x -= size*ch.xoffset;
-            charpos.y += size*(ch.tex->getHeight()-ch.yoffset);
+            charpos.x -= ch.xoffset;
+            charpos.y += ch.tex->getHeight()-ch.yoffset;
             charpos.y += topchrs;
             glUniform2f(poslocation,charpos.x,charpos.y);
             glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-            posytion.x += (ch.distance/64.0)*size;
+            posytion.x += ch.distance;
         }
         return tr;
     }
+    Rect draw_text(Font& font,std::string text,Point position,
+                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT){
+        std::string buf;
+        float y=0.0f;
+        Rect bbox;
+        Rect tmp;
+        bool first=true;
+        text += '\n';//to draw the last line
+        for(const char& ch : text){
+            if(ch=='\r')continue;
+            if(ch=='\n'){
+                tmp = draw_singleline_text(font,buf,position+Point(0.0f,y),color,algn);
+                if(first){
+                    bbox.x = tmp.x;
+                    bbox.y = tmp.y;
+                    first=false;
+                }
+                bbox.w = glm::max(bbox.w,tmp.w);
+                bbox.h = glm::max(bbox.h,y+tmp.h);
+                y += font.getHeight();
+                buf.clear();
+            }else{
+                buf += ch;
+            }
+        }
+        return bbox;
+    }
+    glm::vec2 getnormalright(glm::vec2 in){
+        float ang = glm::atan(in.y,in.x);
+        return {glm::cos(ang),glm::sin(ang)};
+    }
+    //CAUTION: Vertices are ordered.
+    struct CulledPolygon{
+        cppp::List<Point> vertices;
+        GLenum drawMode;
+        CulledPolygon(cppp::List<Point> vertices,GLenum drawMode=GL_TRIANGLE_FAN) : vertices(vertices), drawMode(drawMode){}
+    };
     namespace draw{
-        Rect rect(Rect in,Color color,Shader& shader=single_color_shader){
+        void rect(Rect in,Color color,Shader& shader=single_color_shader){
             glUseProgram(shader.program);
             glBindVertexArray(colored_polygon_vao);
             glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
@@ -414,11 +480,11 @@ namespace pygame{
             glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             glUniform2f(shader.getLocation("position"),in.x,in.y);
             glUniform1f(shader.getLocation("size"),1.0);
+            glUniform1f(shader.getLocation("vertrot"),0.0f);
             glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
             glDrawArrays(GL_TRIANGLE_FAN,0,4);
-            return in;
         }
-        Triangle triangle(Triangle in,Color color,Shader& shader=single_color_shader){
+        void triangle(Triangle in,Color color,Shader& shader=single_color_shader){
             glUseProgram(shader.program);
             glBindVertexArray(colored_polygon_vao);
             glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
@@ -430,11 +496,11 @@ namespace pygame{
             glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             glUniform2f(shader.getLocation("position"),0.0,0.0);
             glUniform1f(shader.getLocation("size"),1.0);
+            glUniform1f(shader.getLocation("vertrot"),0.0f);
             glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
             glDrawArrays(GL_TRIANGLES,0,3);
-            return in;
         }
-        Line line(Line in,Color color,Shader& shader=single_color_shader){
+        void line(Line in,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shader=single_color_shader){
             glUseProgram(shader.program);
             glBindVertexArray(colored_polygon_vao);
             glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
@@ -445,11 +511,34 @@ namespace pygame{
             glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             glUniform2f(shader.getLocation("position"),0.0,0.0);
             glUniform1f(shader.getLocation("size"),1.0);
+            glUniform1f(shader.getLocation("vertrot"),0.0f);
             glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
             glDrawArrays(GL_LINES,0,2);
-            return in;
         }
-        Rect3D rect3D(pContext3D context,Rect3D in,prTexture text){
+        void poly(CulledPolygon cp,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shdr=single_color_shader);
+        void linerect(Line in,float thickness,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shader=single_color_shader){
+            Point a0(-thickness/2.0f,0.0f);
+            Point a1(thickness/2.0f,0.0f);
+            Point b0(-thickness/2.0f,in.length());
+            Point b1(thickness/2.0f,in.length());
+            glUseProgram(shader.program);
+            glBindVertexArray(colored_polygon_vao);
+            glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
+            float vtx[8] = {
+                a0.x,a0.y,
+                a1.x,a1.y,
+                b0.x,b0.y,
+                b1.x,b1.y
+
+            };
+            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
+            glUniform2f(shader.getLocation("position"),in.a.x,in.a.y);
+            glUniform1f(shader.getLocation("size"),1.0);
+            glUniform1f(shader.getLocation("vertrot"),glm::atan(Point(in).y,Point(in).x));
+            glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
+            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+        }
+        void rect3D(pContext3D context,Rect3D in,prTexture text){
             glUseProgram(texture_3d_shader.program);
             glBindVertexArray(texture_3d_vao);
             glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
@@ -458,7 +547,7 @@ namespace pygame{
                                 context->near_clip,context->far_clip);
             glUniformMatrix4fv(texture_3d_shader.getLocation("projection"),1,GL_FALSE,glm::value_ptr(projmat));
             glm::mat4 model = in.modelmatrix();
-            glUniformMatrix4fv(texture_3d_shader.getLocation("model"),1,GL_FALSE,glm::value_ptr(model));
+            glUniformMatrix4fv(texture_3d_shader.getLocation("mode"),1,GL_FALSE,glm::value_ptr(model));
             glm::vec3 bl = in.bottomleft;
             glm::vec3 br = in.bottomright;
             glm::vec3 tl = in.topleft;
@@ -474,9 +563,8 @@ namespace pygame{
             glUniform1f(texture_3d_shader.getLocation("alpha"),text.alpha);
             glUniform1f(texture_3d_shader.getLocation("bright"),text.brightness);
             glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-            return in;
         }
-        Cube cube(pContext3D context,Cube in,CubeTexture textures){
+        void cube(pContext3D context,Cube in,CubeTexture textures){
             glUseProgram(texture_3d_shader.program);
             glBindVertexArray(texture_3d_vao);
             glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
@@ -486,7 +574,7 @@ namespace pygame{
             glUniformMatrix4fv(texture_3d_shader.getLocation("projection"),1,GL_FALSE,glm::value_ptr(projmat));
             glm::mat4 model = in.modelmatrix();
             glUniformMatrix4fv(texture_3d_shader.getLocation("model"),1,GL_FALSE,glm::value_ptr(model));
-            {
+            if(textures.back.p!=nullptr){
                 float vtx[20] = {
                     0.0  ,in.h,0.0,1.0,1.0,
                     in.w,in.h,0.0,0.0,1.0,
@@ -499,7 +587,7 @@ namespace pygame{
                 glUniform1f(texture_3d_shader.getLocation("bright"),textures.back.brightness);
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
-            {
+            if(textures.front.p!=nullptr){
                 float vtx[20] = {
                     0.0  ,in.h,in.l,0.0,1.0,
                     0.0  ,0.0  ,in.l,0.0,0.0,
@@ -512,7 +600,7 @@ namespace pygame{
                 glUniform1f(texture_3d_shader.getLocation("bright"),textures.front.brightness);
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
-            {
+            if(textures.left.p!=nullptr){
                 float vtx[20] = {
                     0.0,0.0  ,0.0  ,0.0,0.0,
                     0.0,0.0  ,in.l,1.0,0.0,
@@ -525,7 +613,7 @@ namespace pygame{
                 glUniform1f(texture_3d_shader.getLocation("bright"),textures.left.brightness);
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
-            {
+            if(textures.right.p!=nullptr){
                 float vtx[20] = {
                     in.w,0.0  ,0.0  ,1.0,0.0,
                     in.w,in.h,0.0  ,1.0,1.0,
@@ -534,11 +622,11 @@ namespace pygame{
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
                 glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.right->getHandle());
-                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.left.alpha);
-                glUniform1f(texture_3d_shader.getLocation("bright"),textures.left.brightness);
+                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.right.alpha);
+                glUniform1f(texture_3d_shader.getLocation("bright"),textures.right.brightness);
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
-            {
+            if(textures.top.p!=nullptr){
                 float vtx[20] = {
                     0.0  ,in.h,in.l,0.0,0.0,
                     in.w,in.h,in.l,1.0,0.0,
@@ -551,7 +639,7 @@ namespace pygame{
                 glUniform1f(texture_3d_shader.getLocation("bright"),textures.top.brightness);
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
-            {
+            if(textures.bottom.p!=nullptr){
                 float vtx[20] = {
                     0.0  ,0.0,in.l,0.0,0.0,
                     0.0  ,0.0,0.0  ,0.0,1.0,
@@ -564,7 +652,6 @@ namespace pygame{
                 glUniform1f(texture_3d_shader.getLocation("bright"),textures.bottom.brightness);
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
-            return in;
         }
     }//namespace draw;
     namespace time{

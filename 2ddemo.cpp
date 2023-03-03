@@ -1,34 +1,31 @@
 #include<string>
 #include<cstdio>
 #include"pygame.hpp"
-using std::wstring;
+using std::string;
 using namespace pygame;
 using namespace pygame::event;
 using pygame::display::Window;
 using pygame::time::Clock;
 int main(){
     init();
-    glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,6);
+    glVer(4,6);
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
-    
     Window win = Window(800,600,"this is a title");
     win.setAsOpenGLTarget();
-    gllInit();
+    drawInit();
     Chlib charlib;
     glViewport(0,0,800,600);
-    Font DEFAULT_FONT = charlib.getfont(L"Cnew","rsrc/courier_new.ttf");
-    DEFAULT_FONT->set_dimensions(70,60);
+    Font& DEFAULT_FONT = charlib.getfont("Cnew","rsrc/courier_new.ttf");
+    DEFAULT_FONT.set_dimensions(0,60);
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
     glPixelStorei(GL_UNPACK_ALIGNMENT,1);
     Point texpos = {30.0,32.0};
-    wstring tt;
+    std::string tt;
     Clock clk;
-    
+    glClearColor(0.0f,0.5f,0.75f,1.0f);
     while(!win.shouldClose()){
         glfwPollEvents();
         for(Event evt : win.eventqueue->get()){
@@ -38,18 +35,16 @@ int main(){
                 texpos.y -= 30;
             }
         }
-        glClearColor(0.0f,0.5f,0.75f,1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        tt = L"Current FPS:";
-        wchar_t carr[150];
-        swprintf(carr,L"%.5f",clk.get_fps());
+        tt = "Current FPS:";
+        char carr[150];
+        sprintf(carr,"%.5f",clk.get_fps());
         tt += carr;
-        draw_text(DEFAULT_FONT,tt,texpos,2.0,{1.0,1.0,0.0,1.0},align::CENTER);
-//        pygame::draw::cube();
+        draw::linerect({{800.0f,0.0f},{1920.0f,1080.0f}},44.0f);
+        draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),align::CENTER);
         win.swapBuffers();
         clk.tick(60);
     }
-    gllDeinit();
-    quit();
+    pygame::quit();
     return 0;
 }
