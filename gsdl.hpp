@@ -16,10 +16,10 @@
 #include"stb_image.h"
 #undef STB_IMAGE_IMPLEMENTATION
 
-#include<fileutils.hpp>
-#include<chlibs.hpp>
-#include<texture.hpp>
-#include<3dgeometry.hpp>
+#include"fileutils.hpp"
+#include"chlibs.hpp"
+#include"texture.hpp"
+#include"3dgeometry.hpp"
 #include"cppp.hpp"
 
 namespace pygame{
@@ -72,14 +72,11 @@ namespace pygame{
         }
     };
     struct prTexture{
-        Texture* p;
+        const Texture* p;
         float alpha=1.0;
         float brightness=1.0;
-        prTexture(Texture* p) : p(p){}
+        prTexture(const Texture* p) : p(p){}
         prTexture() = default;
-        Texture* operator->() noexcept{
-            return p;
-        }
         const Texture* operator->() const noexcept{
             return p;
         }
@@ -150,7 +147,7 @@ namespace pygame{
             void attachRenderbuf(GLenum target,Renderbuffer &rbuf){
                 glNamedFramebufferRenderbuffer(fbo,target,GL_RENDERBUFFER,rbuf.getId());
             }
-            void attachTexture(Texture& texture){
+            void attachTexture(const Texture& texture){
                 int attachment_point = GL_COLOR_ATTACHMENT0+(colorattach++);
                 if(colorattach>GL_MAX_COLOR_ATTACHMENTS){
                     throw std::logic_error("Too many color attachments for framebuffer "+std::to_string(fbo)+" !");
@@ -215,11 +212,32 @@ namespace pygame{
     struct Shader{
         GLuint program=-1;
         mutable std::unordered_map<std::string,GLint> locations;
-        GLint getLocation(const char* location){
+        GLint getLocation(const char* location) const{
             if(locations.count(location)==0){
                 locations.emplace(location,glGetUniformLocation(program,location));
             }
             return locations[location];
+        }
+        void use() const{
+            glUseProgram(program);
+        }
+        void u1f(const char* var, float x) const{
+            glProgramUniform1f(program,getLocation(var),x);
+        }
+        void u1ftime(const char* var="time", float mul=1.0f) const{
+            u1f(var,glfwGetTime()*mul);
+        }
+        void u1i(const char* var, GLint x) const{
+            glProgramUniform1i(program,getLocation(var),x);
+        }
+        void u1ui(const char* var, GLint x) const{
+            glProgramUniform1ui(program,getLocation(var),x);
+        }
+        void u2f(const char* var, GLfloat x, GLfloat y) const{
+            glProgramUniform2f(program,getLocation(var),x,y);
+        }
+        void uv4(const char* var, glm::vec4 v4) const{
+            glProgramUniform4fv(program,getLocation(var),1,glm::value_ptr(v4));
         }
     };
     GLuint fill_vao,fill_vbo,texture_vao,texture_vbo;
@@ -331,7 +349,7 @@ namespace pygame{
         glUseProgram(shdr.program);
         glDrawArrays(drawmode,0,vert_cnt);
     }
-    void blit(prTexture image,Point location,double size,float rotation=0.0f,
+    void blit(const prTexture image,Point location,double size,float rotation=0.0f,
     Shader& shader=texture_shader){
         float vtx[16] = {
             0.0                     ,0.0                      ,0.0,1.0,
@@ -529,12 +547,12 @@ namespace pygame{
                 a1.x,a1.y,
                 b0.x,b0.y,
                 b1.x,b1.y
-
             };
             glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             glUniform2f(shader.getLocation("position"),in.a.x,in.a.y);
             glUniform1f(shader.getLocation("size"),1.0);
-            glUniform1f(shader.getLocation("vertrot"),glm::atan(Point(in).y,Point(in).x));
+            Point din(in);
+            glUniform1f(shader.getLocation("vertrot"),glm::atan(din.y,din.x)-glm::pi<float>()/2.0f);
             glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
             glDrawArrays(GL_TRIANGLE_STRIP,0,4);
         }

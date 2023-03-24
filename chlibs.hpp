@@ -5,11 +5,11 @@
 #include<stdexcept>
 #include<unordered_map>
 #include<glad/glad.h>
-#include<texture.hpp>
 #include<optional>
 #include<filesystem>
 #include<cppp.hpp>
 #include<memory>
+#include"texture.hpp"
 namespace _ft{
     #include<ft2build.h>
     #include FT_FREETYPE_H

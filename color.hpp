@@ -1,6 +1,6 @@
 #ifndef PYGAME_COLOR_HPP
 #define PYGAME_COLOR_HPP
-#include<pygame.hpp>
+#include"gsdl.hpp"
 namespace pygame{
     namespace color{
         #define defcolor const constexpr pygame::Color

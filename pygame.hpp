@@ -17,6 +17,11 @@ namespace pygame{
             display::init();
         _is_init = true;
     }
+    void setupTemplate0(){
+        glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    }
     void quit(){
         if(_is_init)
             display::quit();

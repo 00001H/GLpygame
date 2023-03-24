@@ -7,7 +7,7 @@
 #include<GLFW/glfw3.h>
 #include<unordered_map>
 #include<stdexcept>
-#include<gsdl.hpp>
+#include"gsdl.hpp"
 namespace pygame{
     namespace{
         bool __is_init=false;

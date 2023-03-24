@@ -5,17 +5,30 @@
 #include<memory>
 namespace pygame{
     class Texture{
-        private:
+        protected:
             bool resident;
-            bool placeholder=false;
             GLsizei width;
             GLsizei height;
             GLenum internalformat;
-            GLuint texture=0;
+            GLuint texture;
             GLuint64 texturehandle;
+            bool placeholder;
         public:
-            Texture(Texture&&);//TODO
-            Texture& operator =(Texture&&);//TODO
+            Texture(Texture&& other){
+                (*this) = std::move(other);
+            }
+            Texture& operator =(Texture&& other){
+                destroy();
+                placeholder = other.placeholder;
+                other.placeholder = true;
+                resident = other.resident;
+                width = other.width;
+                height = other.height;
+                internalformat = other.internalformat;
+                texture = other.texture;
+                texturehandle = other.texturehandle;
+                return *this;
+            }
             Texture(const Texture&) = delete;
             Texture& operator =(const Texture&) = delete;
             Texture(
@@ -30,7 +43,8 @@ namespace pygame{
                 GLenum wrap_s=GL_CLAMP_TO_EDGE,
                 GLenum wrap_t=GL_CLAMP_TO_EDGE,
                 glm::vec4 bordercolor={0.0,0.0,0.0,1.0}
-            ) : width(width),height(height),internalformat(internalformat){
+            ) : width(width),height(height),internalformat(internalformat),
+            texture(0), placeholder(false){
                 glGenTextures(1,&texture);
                 glBindTexture(GL_TEXTURE_2D,texture);
                 glTexImage2D(GL_TEXTURE_2D,0,internalformat,width,height,0,imageformat,GL_UNSIGNED_BYTE,data);
@@ -45,14 +59,17 @@ namespace pygame{
                 resident = false;
                 enable();
             }
+            bool isNull() const{
+                return placeholder;
+            }
             void enable(){
-                if(!resident){
+                if(!(placeholder||resident)){
                     glMakeTextureHandleResidentARB(texturehandle);
                     resident=true;
                 }
             }
             void disable(){
-                if(resident){
+                if(resident&&(!placeholder)){
                     glMakeTextureHandleNonResidentARB(texturehandle);
                     resident=false;
                 }
@@ -73,14 +90,23 @@ namespace pygame{
                 if(!resident){
                     throw std::logic_error("Trying to access a non-resident handle!");
                 }
+                if(placeholder){
+                    throw std::logic_error("Trying to use a null texture!");
+                }
                 return texturehandle;
             }
             auto getId() const{
                 return texture;
             }
+            void destroy(){
+                if(!placeholder){
+                    disable();
+                    glDeleteTextures(1,&texture);
+                    placeholder = true;
+                }
+            }
             ~Texture(){
-                disable();
-                glDeleteTextures(1,&texture);
+                destroy();
             }
     };
 }

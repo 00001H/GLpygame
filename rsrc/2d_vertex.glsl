@@ -6,8 +6,7 @@ uniform vec2 position;
 uniform float size;
 uniform float vertrot=0.0;
 vec2 rotate(vec2 pos,float rott){
-    float ang = (atan(pos.y,pos.x)-rott);
-    return vec2(sin(ang),cos(ang))*length(pos);
+    return mat2(cos(rott),sin(rott),-sin(rott),cos(rott))*pos;
 }
 void main(){
     vec2 poss = vec2(pos*size);
