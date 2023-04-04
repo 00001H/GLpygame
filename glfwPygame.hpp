@@ -19,10 +19,11 @@ namespace pygame{
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,mnr);
     }
     namespace event{
-        enum EventType{
+        enum{
             MOUSEMOTION=0xfa01,MOUSEBUTTONDOWN=0xfa02,MOUSEBUTTONUP=0xfa03,
-            KEYDOWN=0xfb01,KEYUP=0xfb02
+            KEYDOWN=0xfb01,KEYUP=0xfb02,TEXT=0xfb10,USEREVT=0xff00
         };
+        using EventType = decltype(MOUSEMOTION);
         struct Event{
             int type;
             std::any value;
@@ -51,10 +52,22 @@ namespace pygame{
         };
         struct KeyEvent{
             int glfw_key;
-            int scancode;
-            int mods;
-            KeyEvent(int key,int scan,int mods) : glfw_key(key),scancode(scan),mods(mods) {}
-            bool is_key(int key,int _orscan=-1) const{return (((key==GLFW_KEY_UNKNOWN)||(glfw_key==GLFW_KEY_UNKNOWN))?(scancode==_orscan):(key==glfw_key));}
+            uint32_t scancode;
+            uint32_t mods;
+            KeyEvent(int key,int scan,uint32_t mods) : glfw_key(key),scancode(scan),mods(mods) {}
+            bool is_key(int key,uint32_t _orscan=-1u) const{return (((key==GLFW_KEY_UNKNOWN)||(glfw_key==GLFW_KEY_UNKNOWN))?(scancode==_orscan):(key==glfw_key));}
+        };
+        struct TextEvent{
+            char32_t ch;
+            TextEvent(char32_t c) : ch(c){}
+            TextEvent(uint_least32_t c) : ch(char32_t(c)){}
+            void apply(std::string& s){
+                if(ch=='\b'){
+                    if(!s.empty())s.pop_back();
+                }else{
+                    s += ch;
+                }
+            }
         };
     }
     namespace display{
@@ -87,6 +100,9 @@ namespace pygame{
                 static void _Handle_KeyPress(GLFWwindow* win,int key,int scan,int action,int mods){
                     winmaps[win]->eventqueue->put(event::Event(((action==GLFW_PRESS) ? event::KEYDOWN : event::KEYUP),event::KeyEvent(key,scan,mods)));
                 }
+                static void _Handle_Text(GLFWwindow* win, uint_least32_t ch){
+                    winmaps[win]->eventqueue->put(event::Event(event::TEXT,event::TextEvent(ch)));
+                }
                 static void _Handle_FBResize(GLFWwindow* win,int wd,int ht){
                     winmaps[win]->tellResize(wd,ht);
                 }
@@ -110,6 +126,7 @@ namespace pygame{
                     glfwSetMouseButtonCallback(win,_Handle_MouseButton);
                     glfwSetKeyCallback(win,_Handle_KeyPress);
                     glfwSetFramebufferSizeCallback(win,_Handle_FBResize);
+                    glfwSetCharCallback(win,_Handle_Text);
                     sw = width;
                     sh = height;
                     current_monitor = monitor;

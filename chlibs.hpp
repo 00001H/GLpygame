@@ -16,7 +16,10 @@ namespace _ft{
 }
 #define FT_Int32 _ft::FT_Int32
 namespace pygame{
-    class FTError:public std::logic_error{
+    class FTError : public std::logic_error{
+        using std::logic_error::logic_error;
+    };
+    class FTRuntimeError : public std::logic_error{
         using std::logic_error::logic_error;
     };
     struct Ch_Texture{
@@ -102,34 +105,35 @@ namespace pygame{
             }
     };
     class Chlib{
-        private:
-            size_t _font_id=0;
+        mutable cppp::Dict<std::string, Font> fonts;
+        mutable size_t _font_id=0;
+        mutable _ft::FT_Library ftlib;
+        Font& _getfont(std::string name,const char *orfile=nullptr) const{
+            if(fonts.has(name)){
+                return fonts.get(name);
+            }else if(orfile==nullptr){
+                throw FTError("Requested for unknown font without file!");
+            }else{
+                _ft::FT_Face face;
+                if(_ft::FT_New_Face(ftlib,orfile,0,&face)){
+                    throw FTRuntimeError("Cannot load face!");
+                }
+                Font font(_font_id++,face);
+                fonts.moveInto(name,std::move(font));
+                return fonts.get(name);
+            }
+        }
         public:
-            _ft::FT_Library ftlib;
-            cppp::Dict<std::string, Font> fonts;
             Chlib(){
                 if(_ft::FT_Init_FreeType(&ftlib)){
                     throw FTError("FreeType initialization failed!");
                 }
             }
             Font& loadfont(std::string name,std::string filepat){
-                std::filesystem::path x(filepat);
-                return getfont(name,x.string().c_str());
+                return _getfont(name,filepat.c_str());
             }
-            Font& getfont(std::string name,const char *orfile=nullptr){
-                if(fonts.has(name)){
-                    return fonts.get(name);
-                }else if(orfile==nullptr){
-                    throw FTError("Requested for unknown font without file!");
-                }else{
-                    _ft::FT_Face face;
-                    if(_ft::FT_New_Face(ftlib,orfile,0,&face)){
-                        throw FTError("Cannot load face!");
-                    }
-                    Font font(_font_id++,face);
-                    fonts.moveInto(name,std::move(font));
-                    return fonts.get(name);
-                }
+            Font& getfont(std::string name) const{
+                return _getfont(name);
             }
     };
 }

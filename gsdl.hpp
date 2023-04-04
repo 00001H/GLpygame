@@ -52,6 +52,7 @@ namespace pygame{
         float h;
         Rect() noexcept = default;
         Rect(float x,float y,float w,float h) : x(x),y(y),w(w),h(h) {}
+        Rect(Point pos, glm::vec2 dims) : x(pos.x), y(pos.y), w(dims.x), h(dims.y){}
         Rect reposition(Point origin){
             Rect nw = *this;
             nw.x = origin.x;
@@ -375,12 +376,15 @@ namespace pygame{
     enum class align{
         LEFT,CENTER,RIGHT
     };
-    Rect get_text_rect(Font& font,std::string text,Point position,
-                   align algn=align::LEFT){
+    enum class v_align{
+        TOP,BASELINE,CENTER,BOTTOM
+    };
+    Rect get_text_rect(Font& font,const std::string& text,Point position,
+                   align algn=align::LEFT,v_align valgn=v_align::TOP){
         float textwidth=0.0f;
         float topchrs=0.0f;
         float bottomchrs=0.0f;
-        float xdelta=0.0f;
+        float xdelta=0.0f,ydelta=0.0f;
         Ch_Texture ch;
         for(char chr : text){
             try{
@@ -393,17 +397,27 @@ namespace pygame{
             bottomchrs = std::min(bottomchrs,ch.yoffset-ch.tex->getHeight());
         }
         if(algn==align::CENTER){
-            xdelta -= textwidth/2.0;
+            xdelta -= textwidth/2.0f;
         }else if(algn==align::RIGHT){
             xdelta -= textwidth;
-        }else if(algn!=align::LEFT){
-            assert(false);
+        }else{
+            assert(algn==align::LEFT);
         }
-        return Rect(position.x+xdelta,position.y,textwidth,topchrs-bottomchrs);
+        float textheight = topchrs-bottomchrs;
+        if(valgn==v_align::BOTTOM){
+            ydelta -= textheight;
+        }else if(valgn==v_align::CENTER){
+            ydelta -= textheight/2.0f;
+        }else if(valgn==v_align::BASELINE){
+            ydelta -= topchrs;
+        }else{
+            assert(valgn==v_align::TOP);
+        }
+        return Rect(position.x+xdelta,position.y,textwidth,textheight);
     }
     
-    Rect draw_singleline_text(Font& font,std::string text,Point position,
-                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT){
+    Rect draw_singleline_text(Font& font,const std::string& text,Point position,
+                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
         float topchrs=0.0;
         Ch_Texture ch;
         for(char chr : text){
@@ -418,7 +432,7 @@ namespace pygame{
         glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
         GLuint imgloc = text_shader.getLocation("img");
         Point charpos,posytion = position;
-        Rect tr = get_text_rect(font,text,position,algn);
+        Rect tr = get_text_rect(font,text,position,algn,valgn);
         posytion.x = tr.x;
         Point sz;
         GLint poslocation = text_shader.getLocation("position");
@@ -447,18 +461,21 @@ namespace pygame{
         }
         return tr;
     }
-    Rect draw_text(Font& font,std::string text,Point position,
-                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT){
-        std::string buf;
-        float y=0.0f;
+    Rect draw_text(Font& font,const std::string& text,Point position,
+                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
+        using text_line = std::pair<std::string,float>;
+        cppp::List<text_line> lines;
+        float y = 0.0f;
+        float ydelta = 0.0f;
         Rect bbox;
         Rect tmp;
         bool first=true;
-        text += '\n';//to draw the last line
+        std::string line;
         for(const char& ch : text){
             if(ch=='\r')continue;
             if(ch=='\n'){
-                tmp = draw_singleline_text(font,buf,position+Point(0.0f,y),color,algn);
+                tmp = get_text_rect(font,text,position,algn);
+                lines.append(std::make_pair(line,y));
                 if(first){
                     bbox.x = tmp.x;
                     bbox.y = tmp.y;
@@ -467,10 +484,22 @@ namespace pygame{
                 bbox.w = glm::max(bbox.w,tmp.w);
                 bbox.h = glm::max(bbox.h,y+tmp.h);
                 y += font.getHeight();
-                buf.clear();
+                line.clear();
             }else{
-                buf += ch;
+                line += ch;
             }
+        }
+        if(valgn==v_align::BOTTOM){
+            ydelta -= bbox.h;
+        }else if(valgn==v_align::CENTER){
+            ydelta -= bbox.h/2.0f;
+        }else if(valgn==v_align::BASELINE){
+            throw pygame::error("Cannot render multiline with BASELINE align");
+        }else{
+            assert(valgn==v_align::TOP);
+        }
+        for(const text_line& ln : lines){
+            draw_singleline_text(font,ln.first,position+Point(0.0f,ln.second+ydelta),color,algn);
         }
         return bbox;
     }
