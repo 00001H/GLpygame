@@ -413,7 +413,7 @@ namespace pygame{
         }else{
             assert(valgn==v_align::TOP);
         }
-        return Rect(position.x+xdelta,position.y,textwidth,textheight);
+        return Rect(position.x+xdelta,position.y+ydelta,textwidth,textheight);
     }
     
     Rect draw_singleline_text(Font& font,const std::string& text,Point position,
@@ -482,8 +482,8 @@ namespace pygame{
                     first=false;
                 }
                 bbox.w = glm::max(bbox.w,tmp.w);
-                bbox.h = glm::max(bbox.h,y+tmp.h);
                 y += font.getHeight();
+                bbox.h = y;
                 line.clear();
             }else{
                 line += ch;
@@ -496,6 +496,7 @@ namespace pygame{
         }else if(valgn==v_align::BASELINE){
             throw pygame::error("Cannot render multiline with BASELINE align");
         }else{
+            std::cout << "vatop-ver" << std::endl;
             assert(valgn==v_align::TOP);
         }
         for(const text_line& ln : lines){
