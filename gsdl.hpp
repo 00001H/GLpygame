@@ -50,7 +50,7 @@ namespace pygame{
         float y;
         float w;
         float h;
-        Rect() noexcept = default;
+        Rect() : x(0.0f), y(0.0f), w(0.0f), h(0.0f){}
         Rect(float x,float y,float w,float h) : x(x),y(y),w(w),h(h) {}
         Rect(Point pos, glm::vec2 dims) : x(pos.x), y(pos.y), w(dims.x), h(dims.y){}
         Rect reposition(Point origin){
@@ -462,7 +462,7 @@ namespace pygame{
         return tr;
     }
     Rect draw_text(Font& font,const std::string& text,Point position,
-                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
+                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true){
         using text_line = std::pair<std::string,float>;
         cppp::List<text_line> lines;
         float y = 0.0f;
@@ -471,9 +471,13 @@ namespace pygame{
         Rect tmp;
         bool first=true;
         std::string line;
+        size_t i=0;
         for(const char& ch : text){
             if(ch=='\r')continue;
-            if(ch=='\n'){
+            if(ch!='\n'){
+                line += ch;
+            }
+            if(ch=='\n'||((++i)==text.size())){
                 tmp = get_text_rect(font,text,position,algn);
                 lines.append(std::make_pair(line,y));
                 if(first){
@@ -485,8 +489,6 @@ namespace pygame{
                 y += font.getHeight();
                 bbox.h = y;
                 line.clear();
-            }else{
-                line += ch;
             }
         }
         if(valgn==v_align::BOTTOM){
@@ -496,11 +498,13 @@ namespace pygame{
         }else if(valgn==v_align::BASELINE){
             throw pygame::error("Cannot render multiline with BASELINE align");
         }else{
-            std::cout << "vatop-ver" << std::endl;
             assert(valgn==v_align::TOP);
         }
-        for(const text_line& ln : lines){
-            draw_singleline_text(font,ln.first,position+Point(0.0f,ln.second+ydelta),color,algn);
+        bbox.y += ydelta;
+        if(do_render){
+            for(const text_line& ln : lines){
+                draw_singleline_text(font,ln.first,position+Point(0.0f,ln.second+ydelta),color,algn);
+            }
         }
         return bbox;
     }

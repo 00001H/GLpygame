@@ -112,6 +112,7 @@ namespace pygame{
                 int fullscreen_fps = 0;
                 double sw,sh;
                 std::function<void(Window&,int,int)> fbcbf;
+                mutable bool closed=false;
             public:
                 std::shared_ptr<event::Events> eventqueue;
                 Window(int width,int height,const char *title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL){
@@ -179,7 +180,8 @@ namespace pygame{
                     glfwSwapBuffers(win);
                 }
                 void close() const{
-                    glfwDestroyWindow(win);
+                    if(!closed)glfwDestroyWindow(win);
+                    closed = true;
                 }
                 bool getKey(int key) const{
                     return glfwGetKey(win,key)==GLFW_PRESS;
@@ -188,7 +190,7 @@ namespace pygame{
                     return glfwGetMouseButton(win,btn)==GLFW_PRESS;
                 }
                 ~Window(){
-                    if(__is_init)glfwDestroyWindow(win);
+                    if(__is_init)close();
                 }
             private:
                 void tellResize(int wd,int ht){
