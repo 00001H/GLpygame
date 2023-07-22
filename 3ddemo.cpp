@@ -75,7 +75,6 @@ int main(){
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_DEBUG_CONTEXT);
     Window win(SW,SH,"3D Test",glfwGetPrimaryMonitor());
     win.setAsOpenGLTarget();
-    stbi_set_flip_vertically_on_load(true);
     pygame::setupTemplate0();
     #if GL_DEBUG_CONTEXT
     glEnable(GL_DEBUG_OUTPUT);
