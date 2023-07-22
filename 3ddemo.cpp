@@ -201,7 +201,7 @@ int main(){
                 }
             }
         }
-        glfwGetCursorPos(win.glfwWindow(),&cupos.x,&cupos.y);
+        cupos = win.mouse_pos();
         if(grabbing==nullptr)rota=0;
         rota = modulo(rota,360);
         if(Curgrab){
