@@ -15,7 +15,7 @@ int main(){
     drawInit();
     Chlib charlib;
     glViewport(0,0,800,600);
-    Font& DEFAULT_FONT = charlib.getfont("Cnew","rsrc/courier_new.ttf");
+    Font& DEFAULT_FONT = charlib.loadfont("StSong","demorsrc/st_song.ttf");
     DEFAULT_FONT.set_dimensions(0,60);
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
@@ -28,20 +28,18 @@ int main(){
     glClearColor(0.0f,0.5f,0.75f,1.0f);
     while(!win.shouldClose()){
         glfwPollEvents();
-        for(Event evt : win.eventqueue->get()){
+        for(Event evt : win.eventqueue.get()){
             if(evt.type == MOUSEBUTTONDOWN){
                 MouseButtonEvent mevt = any_cast<MouseButtonEvent>(evt.value);
                 texpos = mevt.pos;
-                texpos.y -= 30;
             }
         }
         glClear(GL_COLOR_BUFFER_BIT);
-        tt = "Current FPS:";
+        tt = "CJK Test: 中日韩 Current FPS:";
         char carr[150];
         sprintf(carr,"%.5f",clk.get_fps());
         tt += carr;
-        draw::linerect({{800.0f,0.0f},{1920.0f,1080.0f}},44.0f);
-        draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),align::CENTER);
+        draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),align::CENTER,v_align::CENTER);
         win.swapBuffers();
         clk.tick(60);
     }

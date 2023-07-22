@@ -1,32 +1,36 @@
 #ifndef PYGAME_HPP
 #define PYGAME_HPP
-#include"glad/glad.h"
+#define GLAD_GL_IMPLEMENTATION
+#include<glad/glad.h>
+#ifndef PYGAME_NO3D
 #include"3dgeometry.hpp"
+#endif
 #include"errs.hpp"
 #include"glfwPygame.hpp"
 #include"gsdl.hpp"
 #include"color.hpp"
 #include"postp.hpp"
 namespace pygame{
+    inline namespace constants{
+        constexpr float SW = 1920.0f;
+        constexpr float SH = 1080.0f;
+        constexpr float HSW = SW/2.0f;
+        constexpr float HSH = SH/2.0f;
+        const Point SCRCNTR = {HSW,HSH};
+        const glm::vec2 SCRDIMS = {SW,SH};
+        using namespace pygame::color::colcon;
+    }
     namespace{
-        bool _is_init = false;
         bool _is_gl_init = false;
     }
-    void init(){
-        if(!_is_init)
-            display::init();
-        _is_init = true;
-    }
+    using display::init;
     void setupTemplate0(){
         glPixelStorei(GL_UNPACK_ALIGNMENT,1);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+        drawInit();
     }
-    void quit(){
-        if(_is_init)
-            display::quit();
-        _is_init = false;
-    }
+    using display::quit;
     void drawInit(){
         if(!_is_gl_init){
             gllInit();
@@ -34,10 +38,9 @@ namespace pygame{
         }
         _is_gl_init = true;
     }
-    //WARNING: Overwrites some OpenGL parameters!
+    //WARNING: Overwrites some OpenGL parameters!(Namely: -Depth Test, +Blend, *BlendFunc: srcA,1-srcA)
     //WARNING: Requires glClearColor to be set!
     void draw_made_with_glpy(display::Window& win,float insecs=1.625,float staysecs=0.875,float outsecs=1.625){
-        stbi_set_flip_vertically_on_load(true);
         const float FPS=60.00;
         prTexture tex = prLoadTexture2D("rsrc/glpy.png");
         #define sec2frm(sec) (glm::round((sec)*FPS))
@@ -53,9 +56,9 @@ namespace pygame{
         time::Clock clok;
         const float size = 3.5;
         Point middle((1920.0-tex->getWidth()*size)/2.0,(1080.0-tex->getHeight()*size)/2.0);
-        while(!win.shouldClose()){
+        while(!win.should_close()){
             glfwPollEvents();
-            win.eventqueue->get();
+            win.eventqueue.get();
             glClear(GL_COLOR_BUFFER_BIT);
             if(0<=frame&&frame<=inframes){
                 visibility = frame/inframes;
@@ -66,7 +69,7 @@ namespace pygame{
             }
             tex.alpha = visibility;
             pygame::blit(tex,middle,size);
-            win.swapBuffers();
+            win.swap_buffers();
             if(frame>(inframes+stayframes+outframes))break;
             clok.tick(FPS);
             frame++;

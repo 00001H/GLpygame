@@ -47,8 +47,6 @@ float inline constexpr modudist(float x,float y,float mod){
 }
 static_assert(modudist(0,10,11)==1);
 
-int SW = 1920;
-int SH = 1080;
 #define GL_DEBUG_CONTEXT false
 std::string surr(bool apply, std::string inside){
     if(apply)return "["+inside+"]";
@@ -77,7 +75,8 @@ int main(){
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_DEBUG_CONTEXT);
     Window win(SW,SH,"3D Test",glfwGetPrimaryMonitor());
     win.setAsOpenGLTarget();
-    pygame::drawInit();
+    stbi_set_flip_vertically_on_load(true);
+    pygame::setupTemplate0();
     #if GL_DEBUG_CONTEXT
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 
@@ -85,15 +84,9 @@ int main(){
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
     #endif
     glClearColor(0.7,0.7,0.7,1.0);
-    
     pygame::draw_made_with_glpy(win);
-    stbi_set_flip_vertically_on_load(true);
-    Font& DEFAULT_FONT = charlib.getfont("Cnew","rsrc/courier_new.ttf");
+    Font& DEFAULT_FONT = charlib.loadfont("Cnew","rsrc/courier_new.ttf");
     DEFAULT_FONT.set_dimensions(0,45);
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    glPixelStorei(GL_UNPACK_ALIGNMENT,1);
     Clock clk;
     Texture* fteximg = loadTexture2D("demorsrc/grid.png");
     Texture* tex = loadTexture2D("demorsrc/a.png");
@@ -124,7 +117,7 @@ int main(){
     float player_yaccel=0.0;
     int mind=0;
     int rota=0;
-    Scene scene(1920,1080);
+    Scene scene{1920,1080};
     std::string kr0,kr1,kr2;
     int krlis[11]{0};
     krlis[4] = 8;
@@ -133,7 +126,7 @@ int main(){
     int mmsel=3;
     while(!win.shouldClose()){
         glfwPollEvents();
-        for(Event evt : win.eventqueue->get()){
+        for(Event evt : win.eventqueue.get()){
             if(evt.type == MOUSEBUTTONDOWN){
                 MouseButtonEvent mevt = any_cast<MouseButtonEvent>(evt.value);
                 if(mevt.btn==0){
@@ -266,10 +259,9 @@ int main(){
         pygame::draw_text(DEFAULT_FONT,kr0,{30.0,125.0});
         pygame::draw_text(DEFAULT_FONT,kr1,{30.0,175.0});
         pygame::draw_text(DEFAULT_FONT,kr2,{30.0,225.0});
-        win.swapBuffers();
+        win.swap_buffers();
         clk.tick(60);
     }
-    gllDeinit();
     pygame::quit();
     return 0;
 }

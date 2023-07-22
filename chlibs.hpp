@@ -10,12 +10,12 @@
 #include<cppp.hpp>
 #include<memory>
 #include"texture.hpp"
-namespace _ft{
-    #include<ft2build.h>
-    #include FT_FREETYPE_H
-}
-#define FT_Int32 _ft::FT_Int32
 namespace pygame{
+    namespace _ft{
+        #include<ft2build.h>
+        #include FT_FREETYPE_H
+    }
+    using FT_Int32 = _ft::FT_Int32;
     class FTError : public std::logic_error{
         using std::logic_error::logic_error;
     };
@@ -24,15 +24,23 @@ namespace pygame{
     };
     struct Ch_Texture{
         Texture* tex;
-        int xoffset;
-        int yoffset;
+        float xoffset;
+        float ascent;
+        float descent;
         float distance;
+        Ch_Texture(Texture* tex) : tex(tex){}
+        Ch_Texture(const Ch_Texture&) = delete;
+        Ch_Texture& operator=(const Ch_Texture&) = delete;
+        ~Ch_Texture(){
+            delete tex;
+        }
     };
+    using char_tex = const Ch_Texture*;
     class _Font{
         public:
             _ft::FT_Face face;
             int _id;
-            std::unordered_map<char,Ch_Texture> charmap;
+            std::unordered_map<cppp::codepoint,Ch_Texture> charmap;
             void set_dimensions(_ft::FT_UInt w,_ft::FT_UInt h){
                 _ft::FT_Set_Pixel_Sizes(face,w,h);
                 charmap.clear();
@@ -40,13 +48,13 @@ namespace pygame{
             float getHeight() const{
                 return float(face->size->metrics.height)/64.0f;
             }
-            Ch_Texture loadChar(char ch){
-                if(charmap.count(ch)){
-                    return charmap[ch];
+            char_tex loadChar(cppp::codepoint ch){
+                if(charmap.contains(ch)){
+                    return &charmap.at(ch);
                 }
                 int x;
                 if((x = _ft::FT_Load_Char(face,ch,FT_LOAD_RENDER))){
-                    std::cerr << "Loadchar failed:" << ch << " " << x << std::endl;
+                    std::cerr << "Loadchar failed: (U+" << std::hex << +ch << std::dec << ") " << x << std::endl;
                     throw FTError("Unable to load chararcter.");
                 }
                 auto glyf = face->glyph;
@@ -58,13 +66,13 @@ namespace pygame{
                 }else{
                     t = new Texture(bmap.buffer,bmap.width,bmap.rows,GL_RED,GL_RED,GL_LINEAR,GL_LINEAR,false);
                 }
-                Ch_Texture chtx;
-                chtx.tex = t;
-                chtx.xoffset = glyf->bitmap_left;
-                chtx.yoffset = glyf->bitmap_top;
-                chtx.distance = float(glyf->advance.x)/64.0f;
-                charmap.emplace(ch,chtx);
-                return chtx;
+                charmap.try_emplace(ch,t);
+                Ch_Texture& chtx = charmap.at(ch);
+                chtx.xoffset = float(glyf->metrics.horiBearingX)/64.0f;
+                chtx.ascent = float(glyf->metrics.horiBearingY)/64.0f;
+                chtx.descent = float(glyf->metrics.horiBearingY-glyf->metrics.height)/64.0f;
+                chtx.distance = float(glyf->metrics.horiAdvance)/64.0f;
+                return &chtx;
             }
             void done(){
                 FT_Done_Face(face);
@@ -82,6 +90,7 @@ namespace pygame{
                 pimpl->_id = id;
                 pimpl->face = fac;
             }
+            Font& operator=(const Font&) = delete;
             Font(const Font&) = delete;
             Font(Font&& x) : pimpl(std::move(std::move(x).pimpl)){}
             ~Font(){
@@ -99,18 +108,18 @@ namespace pygame{
                     pimpl->done();
                 }
             }
-            Ch_Texture loadChar(char ch){
+            char_tex loadChar(cppp::codepoint ch){
                 if(pimpl!=nullptr)return pimpl->loadChar(ch);
                 else throw std::bad_optional_access();
             }
     };
     class Chlib{
-        mutable cppp::Dict<std::string, Font> fonts;
+        mutable std::unordered_map<std::string, Font> fonts;
         mutable size_t _font_id=0;
         mutable _ft::FT_Library ftlib;
         Font& _getfont(std::string name,const char *orfile=nullptr) const{
-            if(fonts.has(name)){
-                return fonts.get(name);
+            if(fonts.contains(name)){
+                return fonts.at(name);
             }else if(orfile==nullptr){
                 throw FTError("Requested for unknown font without file!");
             }else{
@@ -119,8 +128,8 @@ namespace pygame{
                     throw FTRuntimeError("Cannot load face!");
                 }
                 Font font(_font_id++,face);
-                fonts.moveInto(name,std::move(font));
-                return fonts.get(name);
+                fonts.emplace(name,std::move(font));
+                return fonts.at(name);
             }
         }
         public:

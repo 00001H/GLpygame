@@ -5,6 +5,7 @@
 #include<string>
 #include<stdexcept>
 #include<memory>
+#include<thread>
 
 #include<glad/glad.h>
 #include<glfw/glfw3.h>
@@ -39,12 +40,6 @@ namespace pygame{
             return glm::distance(a,b);
         }
     };
-    struct Triangle{
-        Point a;
-        Point b;
-        Point c;
-        Triangle(Point a,Point b,Point c) : a(a), b(b), c(c) {}
-    };
     struct Rect{
         float x;
         float y;
@@ -58,6 +53,9 @@ namespace pygame{
             nw.x = origin.x;
             nw.y = origin.y;
             return nw;
+        }
+        Point center() const{
+            return {x+w/2.0f,y+h/2.0f};
         }
         bool colliderect(Rect other) const{
             return ((x<(other.y+other.w))//left is lefter than other right
@@ -77,11 +75,13 @@ namespace pygame{
         float alpha=1.0;
         float brightness=1.0;
         prTexture(const Texture* p) : p(p){}
+        prTexture(const Texture& p) : p(&p){}
         prTexture() = default;
         const Texture* operator->() const noexcept{
             return p;
         }
     };
+#ifndef PYGAME_NO3D
     struct CubeTexture{
         public:
             prTexture front;
@@ -94,11 +94,12 @@ namespace pygame{
             front(face),back(face),top(face),bottom(face),
             left(face),right(face){}
     };
+#endif
     Texture* loadTexture2D(const char* filename){
         int w,h,color_chnls;
         unsigned char *data = stbi_load(filename,&w,&h,&color_chnls,0);
         if(data==nullptr){
-            throw pygame::error((std::string)"Unable to load texture: "+filename);
+            throw pygame::error(std::string("Unable to load texture: ")+filename);
         }
         Texture* v = new Texture(data,w,h,(color_chnls==3)?GL_RGB:GL_RGBA,GL_RGBA);
         stbi_image_free(data);
@@ -128,6 +129,10 @@ namespace pygame{
         private:
             GLuint fbo;
             int colorattach=0;
+            mutable bool once_bound=false;
+            void error_unbound() const{
+                throw pygame::error("New framebuffers needs to be bound at least once before it is valid!");
+            }
         public:
             Framebuffer(){
                 glGenFramebuffers(1,&fbo);
@@ -144,14 +149,17 @@ namespace pygame{
             }
             void bind(GLenum target=GL_FRAMEBUFFER) const{
                 glBindFramebuffer(target,fbo);
+                once_bound = true;
             }
             void attachRenderbuf(GLenum target,Renderbuffer &rbuf){
+                if(!once_bound)error_unbound();
                 glNamedFramebufferRenderbuffer(fbo,target,GL_RENDERBUFFER,rbuf.getId());
             }
             void attachTexture(const Texture& texture){
+                if(!once_bound)error_unbound();
                 int attachment_point = GL_COLOR_ATTACHMENT0+(colorattach++);
                 if(colorattach>GL_MAX_COLOR_ATTACHMENTS){
-                    throw std::logic_error("Too many color attachments for framebuffer "+std::to_string(fbo)+" !");
+                    throw pygame::error("Too many color attachments for framebuffer "+std::to_string(fbo)+" !");
                 }
                 glNamedFramebufferTexture(fbo,attachment_point,texture.getId(),0);
             }
@@ -231,39 +239,52 @@ namespace pygame{
         void u1i(const char* var, GLint x) const{
             glProgramUniform1i(program,getLocation(var),x);
         }
-        void u1ui(const char* var, GLint x) const{
+        void u1ui(const char* var, GLuint x) const{
             glProgramUniform1ui(program,getLocation(var),x);
         }
         void u2f(const char* var, GLfloat x, GLfloat y) const{
             glProgramUniform2f(program,getLocation(var),x,y);
         }
+        void uv2(const char* var, glm::vec2 v2) const{
+            glProgramUniform2fv(program,getLocation(var),1,glm::value_ptr(v2));
+        }
+        void uv3(const char* var, glm::vec3 v3) const{
+            glProgramUniform3fv(program,getLocation(var),1,glm::value_ptr(v3));
+        }
         void uv4(const char* var, glm::vec4 v4) const{
             glProgramUniform4fv(program,getLocation(var),1,glm::value_ptr(v4));
+        }
+        void uimg(const char* var, GLuint64 hndl) const{
+            glProgramUniformHandleui64ARB(program,getLocation(var),hndl);
         }
     };
     GLuint fill_vao,fill_vbo,texture_vao,texture_vbo;
     GLuint colored_polygon_vao,colored_polygon_vbo;
-    GLuint texture_3d_vao,texture_3d_vbo;
     Shader texture_shader,text_shader,fill_shader,single_color_shader;
+#ifndef PYGAME_NO3D
+    GLuint texture_3d_vao,texture_3d_vbo;
     Shader texture_3d_shader;
+#endif
+    void setRenderRect(float xmax,float ymax,Shader& sh){
+        sh.u1f("hsw",xmax/2.0f);
+        sh.u1f("hsh",ymax/2.0f);
+    }
 
     GLfloat simple_quad[]={//GL_TRIANGLE_FAN
-        0.0,0.0,0.0,0.0,
-        0.0,1.0,0.0,1.0,
-        1.0,1.0,1.0,1.0,
-        1.0,0.0,1.0,0.0
+        0.0f,0.0f,0.0f,0.0f,
+        0.0f,1.0f,0.0f,1.0f,
+        1.0f,1.0f,1.0f,1.0f,
+        1.0f,0.0f,1.0f,0.0
     };
     using namespace std::literals;
-    GLuint rsrcload(std::string x,std::string y){
+    GLuint load_rsrc_program(std::string x,std::string y){
         cppp::dirpath p=x,q=y;
         cppp::dirpath rp="rsrc"s/p,rq="rsrc"s/q;
         std::string pstr=rp.string(),qstr=rq.string();
         return loadprogram(pstr.c_str(),qstr.c_str());
     }
-    #ifndef GLPY_PACKED
-    #define GLPY_PLOAD rsrcload
-    #else
-    #define GLPY_PLOAD GLPY_PLOAD_PACKED
+    #ifndef GLPY_PLOQE
+    #define GLPY_PLOAD load_rsrc_program
     #endif
     void gllInit(){
         if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
@@ -273,29 +294,30 @@ namespace pygame{
         texture_shader.program = GLPY_PLOAD("2d_textured_vertex.glsl","texture_sampling_fragment.glsl");
         fill_shader.program = GLPY_PLOAD("2d_colored_vertex.glsl","fill_fragment.glsl");
         single_color_shader.program = GLPY_PLOAD("2d_vertex.glsl","single_color_fragment.glsl");
+        
+#ifndef PYGAME_NO3D
         texture_3d_shader.program = GLPY_PLOAD("3d_textured_vertex.glsl","3d_textured_fragment.glsl");
-        #undef GLPY_PLOAD
+#endif
+#undef GLPY_PLOAD
         glGenVertexArrays(1,&texture_vao);
         glGenBuffers(1,&texture_vbo);
         glBindVertexArray(texture_vao);
         glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
-        //2(xy)+2(st) = 4/vertex
-        //let's support 20 vtx
-        //that's 80*float
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*80,nullptr,GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,4*sizeof(GLfloat),(void*)0);
+        //2(st) = 2/vertex
+        //let's support 400 vtx
+        //that's 800*float
+        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*800,nullptr,GL_DYNAMIC_DRAW);
+        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(GLfloat),(void*)0);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,4*sizeof(GLfloat),(void*)(2*sizeof(GLfloat)));
-        glEnableVertexAttribArray(1);
 
         glGenVertexArrays(1,&fill_vao);
         glGenBuffers(1,&fill_vbo);
         glBindVertexArray(fill_vao);
         glBindBuffer(GL_ARRAY_BUFFER,fill_vbo);
         //2(xy)+3(rgb) = 5/vertex
-        //let's support 20 vtx as well
-        //that's 100*float
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*100,nullptr,GL_DYNAMIC_DRAW);
+        //let's support 200 vtx as well
+        //that's 1000*float
+        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*1000,nullptr,GL_DYNAMIC_DRAW);
         glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,5*sizeof(GLfloat),(void*)0);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,5*sizeof(GLfloat),(void*)(2*sizeof(GLfloat)));
@@ -307,13 +329,15 @@ namespace pygame{
         glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
 
         //2(xy) = 2/vertex
-        //let's support 40 vtx
-        //that's 80*float
+        //let's support 400 vtx
+        //that's 800*float
 
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*80,nullptr,GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*800,nullptr,GL_DYNAMIC_DRAW);
         glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(GLfloat),(void*)0);
         glEnableVertexAttribArray(0);
 
+
+#ifndef PYGAME_NO3D
         glGenVertexArrays(1,&texture_3d_vao);
         glGenBuffers(1,&texture_3d_vbo);
         glBindVertexArray(texture_3d_vao);
@@ -326,52 +350,33 @@ namespace pygame{
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,5*sizeof(GLfloat),(void*)(3*sizeof(GLfloat)));
         glEnableVertexAttribArray(1);
-
+#endif
     }
-    void gllDeinit(){
-        glDeleteProgram(text_shader.program);
-        glDeleteProgram(texture_shader.program);
-        glDeleteProgram(fill_shader.program);
-        glDeleteProgram(single_color_shader.program);
-        glDeleteProgram(texture_3d_shader.program);
-        glDeleteVertexArrays(1,&texture_vao);
-        glDeleteVertexArrays(1,&colored_polygon_vao);
-        glDeleteVertexArrays(1,&fill_vao);
-        glDeleteVertexArrays(1,&texture_3d_vao);
-        glDeleteBuffers(1,&texture_vbo);
-        glDeleteBuffers(1,&colored_polygon_vbo);
-        glDeleteBuffers(1,&fill_vbo);
-        glDeleteBuffers(1,&texture_3d_vbo);
-    }
-    void invoke_shader(float* data, unsigned int data_cnt, unsigned int vert_cnt, Shader& shdr, GLenum drawmode=GL_TRIANGLE_STRIP, GLuint vao=colored_polygon_vao, GLuint vbo=colored_polygon_vbo){
+    void invoke_shader(float* data, unsigned int data_cnt, unsigned int vert_cnt, const Shader& shdr, GLenum drawmode=GL_TRIANGLE_STRIP, GLuint vao=colored_polygon_vao, GLuint vbo=colored_polygon_vbo){
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER,vbo);
         glBufferSubData(GL_ARRAY_BUFFER,0,data_cnt*sizeof(float),data);
-        glUseProgram(shdr.program);
+        shdr.use();
         glDrawArrays(drawmode,0,vert_cnt);
     }
-    void blit(const prTexture image,Point location,double size,float rotation=0.0f,
+    void blit(const prTexture& image,Point location,float size,float rotation=0.0f,
     Shader& shader=texture_shader){
-        float vtx[16] = {
-            0.0                     ,0.0                      ,0.0,1.0,
-            0.0                     ,(float)image->getHeight(),0.0,0.0,
-            (float)image->getWidth(),0.0                      ,1.0,1.0,
-            (float)image->getWidth(),(float)image->getHeight(),1.0,0.0
+        float vtx[8] = {
+            0.0f,1.0f,
+            0.0f,0.0f,
+            1.0f,1.0f,
+            1.0f,0.0
         };
         GLint imglocation = shader.getLocation("img");
-        GLint poslocation = shader.getLocation("position");
-        GLint sizelocation = shader.getLocation("size");
-        GLint rotationlocation = shader.getLocation("rotation");
-        GLint transparlocation = shader.getLocation("transparency");
-        GLint brightnesslocation = shader.getLocation("brightness");
         glUseProgram(shader.program);
         glUniformHandleui64ARB(imglocation,image->getHandle());
-        glUniform2f(poslocation,location.x,location.y);
-        glUniform1f(sizelocation,size);
-        glUniform1f(rotationlocation,rotation);
-        glUniform1f(transparlocation,image.alpha);
-        glUniform1f(brightnesslocation,image.brightness);
-        invoke_shader(vtx,sizeof(vtx)/sizeof(float),4,shader,GL_TRIANGLE_STRIP,texture_vao,texture_vbo);
+        shader.uv2("position",location);
+        shader.u1f("size",size);
+        shader.u2f("imgdims",image->getWidth(),image->getHeight());
+        shader.u1f("rotation",-rotation);
+        shader.u1f("transparency",image.alpha);
+        shader.u1f("brightness",image.brightness);
+        invoke_shader(vtx,8,4,shader,GL_TRIANGLE_STRIP,texture_vao,texture_vbo);
     }
     enum class align{
         LEFT,CENTER,RIGHT
@@ -379,22 +384,23 @@ namespace pygame{
     enum class v_align{
         TOP,BASELINE,CENTER,BOTTOM
     };
-    Rect get_text_rect(Font& font,const std::string& text,Point position,
-                   align algn=align::LEFT,v_align valgn=v_align::TOP){
+    Rect get_text_rect(Font& font,const cppp::codepoints& cps,Point position,
+                   align algn=align::LEFT,v_align valgn=v_align::TOP,
+        float* masc=nullptr,float* mdsc=nullptr){
         float textwidth=0.0f;
-        float topchrs=0.0f;
-        float bottomchrs=0.0f;
+        float maxascent=0.0f;
+        float mindescent=0.0f;
         float xdelta=0.0f,ydelta=0.0f;
-        Ch_Texture ch;
-        for(char chr : text){
+        char_tex ch=nullptr;
+        for(const cppp::codepoint& chr : cps){
             try{
                 ch = font.loadChar(chr);
             }catch(FTError&){
-                ch = font.loadChar(L'?');
+                ch = font.loadChar('?');
             }
-            textwidth += ch.distance;
-            topchrs = std::max<float>(topchrs,ch.yoffset);
-            bottomchrs = std::min(bottomchrs,ch.yoffset-ch.tex->getHeight());
+            textwidth += ch->distance;
+            maxascent = std::max(maxascent,ch->ascent);
+            mindescent = std::min(mindescent,ch->descent);
         }
         if(algn==align::CENTER){
             xdelta -= textwidth/2.0f;
@@ -403,91 +409,109 @@ namespace pygame{
         }else{
             assert(algn==align::LEFT);
         }
-        float textheight = topchrs-bottomchrs;
+        float textheight = maxascent-mindescent;
         if(valgn==v_align::BOTTOM){
             ydelta -= textheight;
         }else if(valgn==v_align::CENTER){
             ydelta -= textheight/2.0f;
         }else if(valgn==v_align::BASELINE){
-            ydelta -= topchrs;
+            ydelta -= maxascent;
         }else{
             assert(valgn==v_align::TOP);
         }
+        if(masc!=nullptr){
+            *masc = maxascent;
+        }
+        if(mdsc!=nullptr){
+            *mdsc = mindescent;
+        }
         return Rect(position.x+xdelta,position.y+ydelta,textwidth,textheight);
+    }Rect get_text_rect(Font& font,const std::string& text,Point position,
+                   align algn=align::LEFT,v_align valgn=v_align::TOP){
+        return get_text_rect(font,cppp::codepoints_of(text),position,algn,valgn);
     }
     
-    Rect draw_singleline_text(Font& font,const std::string& text,Point position,
-                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
-        float topchrs=0.0;
-        Ch_Texture ch;
-        for(char chr : text){
-            ch = font.loadChar(chr);
-            topchrs = std::max<float>(topchrs,ch.yoffset);
-        }
-        glUseProgram(text_shader.program);
-        glUniform4f(text_shader.getLocation("color"),color.x,color.y,color.z,color.w);
-        glUniform1f(text_shader.getLocation("size"),1.0f);
-        glUniform1i(text_shader.getLocation("rotation"),0);
+    Rect draw_singleline_text(Font& font,const cppp::codepoints& cps,Point position,
+                   Color color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
+        char_tex ch=nullptr;
+        float maxasc;
+        float mindsc;
+        text_shader.use();
+        text_shader.uv4("color",color);
+        text_shader.u1f("size",1.0f);
+        text_shader.u1f("rotation",0.0f);
         glBindVertexArray(texture_vao);
         glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
         GLuint imgloc = text_shader.getLocation("img");
         Point charpos,posytion = position;
-        Rect tr = get_text_rect(font,text,position,algn,valgn);
+        Rect tr = get_text_rect(font,cps,position,algn,valgn,&maxasc,&mindsc);
         posytion.x = tr.x;
+        if(valgn==v_align::TOP){
+            posytion.y += maxasc;
+        }else if(valgn==v_align::BOTTOM){
+            posytion.y += mindsc;
+        }else if(valgn==v_align::CENTER){
+            posytion.y += tr.h/2.0f;
+        }
         Point sz;
-        GLint poslocation = text_shader.getLocation("position");
-        for(char chr : text){
+        for(const cppp::codepoint& chr : cps){
             try{
                 ch = font.loadChar(chr);
             }catch(FTError&){
-                ch = font.loadChar(L'?');
+                ch = font.loadChar('?');
             }
-            glUniformHandleui64ARB(imgloc,ch.tex->getHandle());
-            sz = Point((float)ch.tex->getWidth(),(float)ch.tex->getHeight());
-            float vtx[16] = {
-                0.0   ,-sz.y,0.0,0.0,
-                0.0   , 0.0 ,0.0,1.0,
-                sz.x  ,-sz.y,1.0,0.0,
-                sz.x  , 0.0 ,1.0,1.0
+            glUniformHandleui64ARB(imgloc,ch->tex->getHandle());
+            sz = Point((float)ch->tex->getWidth(),(float)ch->tex->getHeight());
+            text_shader.uv2("imgdims",sz);
+            float vtx[8] = {
+                0.0f,0.0f,
+                0.0f,1.0f,
+                1.0f,0.0f,
+                1.0f,1.0
             };
             glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             charpos = posytion;
-            charpos.x -= ch.xoffset;
-            charpos.y += ch.tex->getHeight()-ch.yoffset;
-            charpos.y += topchrs;
-            glUniform2f(poslocation,charpos.x,charpos.y);
+            charpos.x += ch->xoffset;
+            charpos.y -= ch->descent+sz.y;
+            text_shader.uv2("position",charpos);
             glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-            posytion.x += ch.distance;
+            posytion.x += ch->distance;
         }
         return tr;
     }
+    Rect draw_singleline_text(Font& font,const std::string text,Point position,
+                   Color color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
+        return draw_singleline_text(font,cppp::codepoints_of(text),position,color,algn,valgn);
+    }
     Rect draw_text(Font& font,const std::string& text,Point position,
-                   Color color={1.0,1.0,1.0,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true){
-        using text_line = std::pair<std::string,float>;
-        cppp::List<text_line> lines;
+                   Color color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true){
+        using text_line = std::pair<cppp::codepoints,float>;
+        std::vector<text_line> lines;
         float y = 0.0f;
         float ydelta = 0.0f;
         Rect bbox;
         Rect tmp;
         bool first=true;
-        std::string line;
+        cppp::codepoints line;
         size_t i=0;
-        for(const char& ch : text){
+        cppp::codepoints cps = cppp::codepoints_of(text);
+        for(const cppp::codepoint& ch : cps){
             if(ch=='\r')continue;
             if(ch!='\n'){
                 line += ch;
             }
-            if(ch=='\n'||((++i)==text.size())){
-                tmp = get_text_rect(font,text,position,algn);
-                lines.append(std::make_pair(line,y));
+            ++i;
+            if(ch=='\n'||(i>=cps.size())){
+                tmp = get_text_rect(font,line,position,algn);
+                lines.push_back(std::make_pair(line,y));
                 if(first){
                     bbox.x = tmp.x;
                     bbox.y = tmp.y;
                     first=false;
                 }
                 bbox.w = glm::max(bbox.w,tmp.w);
+                bbox.h = y+tmp.h;
                 y += font.getHeight();
-                bbox.h = y;
                 line.clear();
             }
         }
@@ -512,84 +536,40 @@ namespace pygame{
         float ang = glm::atan(in.y,in.x);
         return {glm::cos(ang),glm::sin(ang)};
     }
-    //CAUTION: Vertices are ordered.
-    struct CulledPolygon{
-        cppp::List<Point> vertices;
-        GLenum drawMode;
-        CulledPolygon(cppp::List<Point> vertices,GLenum drawMode=GL_TRIANGLE_FAN) : vertices(vertices), drawMode(drawMode){}
-    };
     namespace draw{
         void rect(Rect in,Color color,Shader& shader=single_color_shader){
-            glUseProgram(shader.program);
-            glBindVertexArray(colored_polygon_vao);
-            glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
             float vtx[8] = {
-                0.0 ,0.0,
-                0.0 ,in.h,
-                in.w,in.h,
-                in.w,0.0
+                0.0f,0.0f,
+                0.0f,1.0f,
+                1.0f,0.0f,
+                1.0f,1.0f
             };
-            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-            glUniform2f(shader.getLocation("position"),in.x,in.y);
-            glUniform1f(shader.getLocation("size"),1.0);
-            glUniform1f(shader.getLocation("vertrot"),0.0f);
-            glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
-            glDrawArrays(GL_TRIANGLE_FAN,0,4);
+            shader.use();
+            shader.u2f("position",in.x,in.y);
+            shader.u2f("imgdims",in.w,in.h);
+            shader.u1f("size",1.0f);
+            shader.u1f("rotation",0.0f);
+            shader.uv4("color",color);
+            invoke_shader(vtx,8,4,shader);
         }
-        void triangle(Triangle in,Color color,Shader& shader=single_color_shader){
-            glUseProgram(shader.program);
-            glBindVertexArray(colored_polygon_vao);
-            glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
-            float vtx[6] = {
-                in.a.x,in.a.y,
-                in.b.x,in.b.y,
-                in.c.x,in.c.y
-            };
-            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-            glUniform2f(shader.getLocation("position"),0.0,0.0);
-            glUniform1f(shader.getLocation("size"),1.0);
-            glUniform1f(shader.getLocation("vertrot"),0.0f);
-            glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
-            glDrawArrays(GL_TRIANGLES,0,3);
-        }
-        void line(Line in,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shader=single_color_shader){
-            glUseProgram(shader.program);
-            glBindVertexArray(colored_polygon_vao);
-            glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
-            float vtx[4] = {
-                in.a.x,in.a.y,
-                in.b.x,in.b.y
-            };
-            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-            glUniform2f(shader.getLocation("position"),0.0,0.0);
-            glUniform1f(shader.getLocation("size"),1.0);
-            glUniform1f(shader.getLocation("vertrot"),0.0f);
-            glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
-            glDrawArrays(GL_LINES,0,2);
-        }
-        void poly(CulledPolygon cp,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shdr=single_color_shader);
         void linerect(Line in,float thickness,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shader=single_color_shader){
-            Point a0(-thickness/2.0f,0.0f);
-            Point a1(thickness/2.0f,0.0f);
-            Point b0(-thickness/2.0f,in.length());
-            Point b1(thickness/2.0f,in.length());
-            glUseProgram(shader.program);
-            glBindVertexArray(colored_polygon_vao);
-            glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
-            float vtx[8] = {
-                a0.x,a0.y,
-                a1.x,a1.y,
-                b0.x,b0.y,
-                b1.x,b1.y
+            float vtx[8uz] = {
+                -0.5f,0.0f,
+                 0.5f,0.0f,
+                -0.5f,1.0f,
+                 0.5f,1.0f
             };
-            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-            glUniform2f(shader.getLocation("position"),in.a.x,in.a.y);
-            glUniform1f(shader.getLocation("size"),1.0);
-            Point din(in);
-            glUniform1f(shader.getLocation("vertrot"),glm::atan(din.y,din.x)-glm::pi<float>()/2.0f);
-            glUniform4f(shader.getLocation("color"),color.x,color.y,color.z,color.w);
-            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            Point din{in};
+            shader.uv2("position",in.a);
+            shader.u2f("imgdims",thickness,in.length());
+            shader.u2f("rotation_center",0.0f,1.0f);
+            shader.u1f("size",1.0f);
+            shader.u1f("rotation",std::atan2(din.y,din.x)+glm::half_pi<float>());
+            shader.uv4("color",color);
+            invoke_shader(vtx,8u,4u,shader);
+            shader.u2f("rotation_center",0.5f,0.5f);
         }
+#ifndef PYGAME_NO3D
         void rect3D(pContext3D context,Rect3D in,prTexture text){
             glUseProgram(texture_3d_shader.program);
             glBindVertexArray(texture_3d_vao);
@@ -605,10 +585,10 @@ namespace pygame{
             glm::vec3 tl = in.topleft;
             glm::vec3 tr = in.topright;
             float vtx[20] = {
-                tl.x,tl.y,tl.z,1.0,1.0,
-                tr.x,tr.y,tr.z,0.0,1.0,
-                bl.x,bl.y,bl.z,1.0,0.0,
-                br.x,br.y,br.z,0.0,0.0
+                tl.x,tl.y,tl.z,1.0f,1.0f,
+                tr.x,tr.y,tr.z,0.0f,1.0f,
+                bl.x,bl.y,bl.z,1.0f,0.0f,
+                br.x,br.y,br.z,0.0f,0.0
             };
             glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),text->getHandle());
@@ -628,10 +608,10 @@ namespace pygame{
             glUniformMatrix4fv(texture_3d_shader.getLocation("model"),1,GL_FALSE,glm::value_ptr(model));
             if(textures.back.p!=nullptr){
                 float vtx[20] = {
-                    0.0  ,in.h,0.0,1.0,1.0,
-                    in.w,in.h,0.0,0.0,1.0,
-                    0.0  ,0.0  ,0.0,1.0,0.0,
-                    in.w,0.0  ,0.0,0.0,0.0
+                    0.0f ,in.h,0.0f,1.0f,1.0f,
+                    in.w,in.h,0.0f,0.0f,1.0f,
+                    0.0f ,0.0f ,0.0f,1.0f,0.0f,
+                    in.w,0.0f ,0.0f,0.0f,0.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
                 glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.back->getHandle());
@@ -641,10 +621,10 @@ namespace pygame{
             }
             if(textures.front.p!=nullptr){
                 float vtx[20] = {
-                    0.0  ,in.h,in.l,0.0,1.0,
-                    0.0  ,0.0  ,in.l,0.0,0.0,
-                    in.w,in.h,in.l,1.0,1.0,
-                    in.w,0.0  ,in.l,1.0,0.0
+                    0.0f ,in.h,in.l,0.0f,1.0f,
+                    0.0f ,0.0f ,in.l,0.0f,0.0f,
+                    in.w,in.h,in.l,1.0f,1.0f,
+                    in.w,0.0f ,in.l,1.0f,0.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
                 glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.front->getHandle());
@@ -654,10 +634,10 @@ namespace pygame{
             }
             if(textures.left.p!=nullptr){
                 float vtx[20] = {
-                    0.0,0.0  ,0.0  ,0.0,0.0,
-                    0.0,0.0  ,in.l,1.0,0.0,
-                    0.0,in.h,0.0  ,0.0,1.0,
-                    0.0,in.h,in.l,1.0,1.0
+                    0.0f,0.0f ,0.0f ,0.0f,0.0f,
+                    0.0f,0.0f ,in.l,1.0f,0.0f,
+                    0.0f,in.h,0.0f ,0.0f,1.0f,
+                    0.0f,in.h,in.l,1.0f,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
                 glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.left->getHandle());
@@ -667,10 +647,10 @@ namespace pygame{
             }
             if(textures.right.p!=nullptr){
                 float vtx[20] = {
-                    in.w,0.0  ,0.0  ,1.0,0.0,
-                    in.w,in.h,0.0  ,1.0,1.0,
-                    in.w,0.0  ,in.l,0.0,0.0,
-                    in.w,in.h,in.l,0.0,1.0
+                    in.w,0.0f ,0.0f ,1.0f,0.0f,
+                    in.w,in.h,0.0f ,1.0f,1.0f,
+                    in.w,0.0f ,in.l,0.0f,0.0f,
+                    in.w,in.h,in.l,0.0f,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
                 glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.right->getHandle());
@@ -680,10 +660,10 @@ namespace pygame{
             }
             if(textures.top.p!=nullptr){
                 float vtx[20] = {
-                    0.0  ,in.h,in.l,0.0,0.0,
-                    in.w,in.h,in.l,1.0,0.0,
-                    0.0  ,in.h,0.0  ,0.0,1.0,
-                    in.w,in.h,0.0  ,1.0,1.0
+                    0.0f ,in.h,in.l,0.0f,0.0f,
+                    in.w,in.h,in.l,1.0f,0.0f,
+                    0.0f ,in.h,0.0f ,0.0f,1.0f,
+                    in.w,in.h,0.0f ,1.0f,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
                 glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.top->getHandle());
@@ -693,10 +673,10 @@ namespace pygame{
             }
             if(textures.bottom.p!=nullptr){
                 float vtx[20] = {
-                    0.0  ,0.0,in.l,0.0,0.0,
-                    0.0  ,0.0,0.0  ,0.0,1.0,
-                    in.w,0.0,in.l,1.0,0.0,
-                    in.w,0.0,0.0  ,1.0,1.0
+                    0.0f ,0.0f,in.l,0.0f,0.0f,
+                    0.0f ,0.0f,0.0f ,0.0f,1.0f,
+                    in.w,0.0f,in.l,1.0f,0.0f,
+                    in.w,0.0f,0.0f ,1.0f,1.0
                 };
                 glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
                 glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.bottom->getHandle());
@@ -705,6 +685,7 @@ namespace pygame{
                 glDrawArrays(GL_TRIANGLE_STRIP,0,4);
             }
         }
+    #endif
     }//namespace draw;
     namespace time{
         class Clock{
@@ -715,20 +696,31 @@ namespace pygame{
                 Clock(){
                     last_tick = tick_before_last_tick = glfwGetTime();
                 }
-                void tick(double fps){
-                    while((glfwGetTime()-last_tick)<(1.0/fps));
+                void measure(){
                     tick_before_last_tick = last_tick;
                     last_tick = glfwGetTime();
                 }
+                //Warning: Please turn off vsync before using this function!!!
+                void tick(double fps){
+                    double frameTime = 1.0/fps;
+                    double passedTime = glfwGetTime()-last_tick;
+                    if(passedTime<frameTime){
+                        uint64_t mcs{static_cast<uint64_t>((frameTime-passedTime)*1000000)};
+                        std::this_thread::sleep_for(std::chrono::microseconds(mcs));
+                    }
+                    tick_before_last_tick = last_tick;
+                    last_tick = glfwGetTime();
+                }
+                double lastFrameTime() const{
+                    return last_tick-tick_before_last_tick;
+                }
                 double get_fps() const{
                     if(last_tick==tick_before_last_tick)return 0;
-                    return 1.00/(last_tick-tick_before_last_tick);
+                    return 1.00/lastFrameTime();
                 }
         };
-        void delay(long ms){
-            float mss = static_cast<double>(ms);
-            double now = glfwGetTime();
-            while(((glfwGetTime()-now)*1000.0)<mss);
+        void delay(long long ms){
+            std::this_thread::sleep_for(std::chrono::milliseconds(ms));
         }
     }//namespace time;
 }//namespace pygame;

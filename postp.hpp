@@ -51,6 +51,9 @@ namespace pygame{
                 )
             )
             , w(wid), h(hgt), sz(scaleup){
+                fb.bind();
+                tmp.bind();
+                Framebuffer::unbind();
                 fb.attachRenderbuf(GL_DEPTH_STENCIL_ATTACHMENT,dep);
                 fb.attachTexture(*graphics.p);
                 tmp.attachTexture(*tmphics);

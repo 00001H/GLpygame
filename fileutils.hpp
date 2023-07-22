@@ -7,19 +7,12 @@
 
 namespace pygame{
 
-    std::string loadStringFile(const std::string fname){
+    std::string loadStringFile(const std::string& fname){
         std::ifstream file;
         file.open(fname.c_str());
-        std::string st;
-        char ch;
-        if(!file){
-            std::cerr << fname << std::endl;
-            throw std::logic_error("Error: file does not exist");
-        }
-        while(!file.eof()){
-            file >> std::noskipws >> ch;
-            st += ch;
-        }
+        auto bgn = std::istreambuf_iterator<char>(file);
+        auto end = std::istreambuf_iterator<char>();
+        std::string st{bgn,end};
         file.close();
         return st;
     }

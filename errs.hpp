@@ -1,5 +1,7 @@
 #ifndef ERRS
 #define ERRS
+#include<string>
+#include<stdexcept>
 namespace pygame{
     #define inherits : public
     class error inherits std::exception{

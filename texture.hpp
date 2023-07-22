@@ -14,6 +14,9 @@ namespace pygame{
             GLuint64 texturehandle;
             bool placeholder;
         public:
+            glm::vec2 pix2tc(size_t x, size_t y){
+                return {float(x)/float(width),float(y)/float(height)};
+            }
             Texture(Texture&& other){
                 (*this) = std::move(other);
             }
@@ -42,7 +45,7 @@ namespace pygame{
                 bool mipmap=false,
                 GLenum wrap_s=GL_CLAMP_TO_EDGE,
                 GLenum wrap_t=GL_CLAMP_TO_EDGE,
-                glm::vec4 bordercolor={0.0,0.0,0.0,1.0}
+                glm::vec4 bordercolor={0.0f,0.0f,0.0f,1.0f}
             ) : width(width),height(height),internalformat(internalformat),
             texture(0), placeholder(false){
                 glGenTextures(1,&texture);
