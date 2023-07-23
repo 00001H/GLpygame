@@ -13,13 +13,15 @@ namespace pygame{
         bool __is_init=false;
     }
     void drawInit();
-    void glVer(int mjr,int mnr){
+    void glVer(int mjr,int mnr,bool core=true){
     #ifndef GLPY_NOWARN_GLVER
         if(mjr<4||(mjr==4&&mnr<=5)){
             std::cerr << "Warning: Using OpenGL<=4.5. Please enable the required OpenGL extensions(DSA and bindless textures) or this library won't work properly. Use #define GLPY_NOWARN_GLVER to supress." << std::endl;
         }
     #endif
         glfwWindowHint(GLFW_CLIENT_API,GLFW_OPENGL_API);
+        glfwWindowHint(GLFW_OPENGL_PROFILE,core?GLFW_OPENGL_CORE_PROFILE:GLFW_OPENGL_COMPAT_PROFILE);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT,GLFW_TRUE);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,mjr);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,mnr);
     }

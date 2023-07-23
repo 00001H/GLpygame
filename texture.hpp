@@ -7,15 +7,15 @@ namespace pygame{
     class Texture{
         protected:
             bool resident;
-            GLsizei width;
-            GLsizei height;
+            GLsizei _width;
+            GLsizei _height;
             GLenum internalformat;
             GLuint texture;
             GLuint64 texturehandle;
             bool placeholder;
         public:
             glm::vec2 pix2tc(size_t x, size_t y){
-                return {float(x)/float(width),float(y)/float(height)};
+                return {float(x)/float(_width),float(y)/float(_height)};
             }
             Texture(Texture&& other){
                 (*this) = std::move(other);
@@ -25,8 +25,8 @@ namespace pygame{
                 placeholder = other.placeholder;
                 other.placeholder = true;
                 resident = other.resident;
-                width = other.width;
-                height = other.height;
+                _width = other._width;
+                _height = other._height;
                 internalformat = other.internalformat;
                 texture = other.texture;
                 texturehandle = other.texturehandle;
@@ -46,7 +46,7 @@ namespace pygame{
                 GLenum wrap_s=GL_CLAMP_TO_EDGE,
                 GLenum wrap_t=GL_CLAMP_TO_EDGE,
                 glm::vec4 bordercolor={0.0f,0.0f,0.0f,1.0f}
-            ) : width(width),height(height),internalformat(internalformat),
+            ) : _width(width),_height(height),internalformat(internalformat),
             texture(0), placeholder(false){
                 glGenTextures(1,&texture);
                 glBindTexture(GL_TEXTURE_2D,texture);
@@ -77,19 +77,31 @@ namespace pygame{
                     resident=false;
                 }
             }
-            float getWidth() const{
-                return width;
+            float width() const{
+                return _width;
             }
-            float getHeight() const{
-                return height;
+            [[deprecated("Use snake_case instead")]] float getWidth() const{
+                return width();
             }
-            glm::vec2 getSize() const{
-                return {width,height};
+            float height() const{
+                return _height;
             }
-            float scalingToFitInside(float side_length) const{
-                return side_length/glm::max(getHeight(),getWidth());
+            [[deprecated("Use snake_case instead")]] float getHeight() const{
+                return height();
             }
-            auto getHandle() const{
+            glm::vec2 size() const{
+                return {_width,_height};
+            }
+            [[deprecated("Use snake_case instead")]] glm::vec2 getSize() const{
+                return size();
+            }
+            float scale_to_fit(float side_length) const{
+                return side_length/glm::max(width(),height());
+            }
+            [[deprecated("Use snake_case instead")]] float scalingToFitInside(float side_length) const{
+                return scale_to_fit(side_length);
+            }
+            auto handle() const{
                 if(!resident){
                     throw std::logic_error("Trying to access a non-resident handle!");
                 }
@@ -98,8 +110,14 @@ namespace pygame{
                 }
                 return texturehandle;
             }
-            auto getId() const{
+            [[deprecated("Use snake_case instead")]] auto getHandle() const{
+                return handle();
+            }
+            auto id() const{
                 return texture;
+            }
+            [[deprecated("Use snake_case instead")]] auto getId() const{
+                return id();
             }
             void destroy(){
                 if(!placeholder){
@@ -110,6 +128,42 @@ namespace pygame{
             }
             ~Texture(){
                 destroy();
+            }
+    };
+    using mpTexture = Texture*;
+    using pTexture = const Texture*;
+    using sTexture = std::unique_ptr<Texture>;
+    //Non-owning!
+    class zTexture{
+        pTexture tex;
+        float a;
+        float b;
+        public:
+            zTexture() : tex(nullptr), a(1.0f), b(1.0f){}
+            zTexture(const Texture& tex,float alpha=1.0f,float brightness=1.0f) : tex(&tex), a(alpha), b(brightness){}
+            auto handle() const{
+                return tex->handle();
+            }
+            float width() const{
+                return tex->width();
+            }
+            float height() const{
+                return tex->height();
+            }
+            float& alpha(){
+                return a;
+            }
+            float alpha() const{
+                return a;
+            }
+            float& brightness(){
+                return b;
+            }
+            float brightness() const{
+                return b;
+            }
+            explicit operator bool() const{
+                return tex;
             }
     };
 }

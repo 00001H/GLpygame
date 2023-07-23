@@ -5,31 +5,33 @@
 			"label": "Compile",
 			"type": "shell",
 			"command": "g++.exe \"${fileDirname}\\${fileBasename}\" -o \"${fileDirname}\\${fileBasenameNoExtension}.exe\" -Ofast -m64 -std=c++23 -Wall -pipe -I\"C:/GL/include\" -I\"E:/GLpygame\" -I\"E:/\" -I\"E:/include\" -L\"E:/GLpygame/libs\"  -s -lglad -lglfw3 -lgdi32 -lfreetype -static",
-			"problemMatcher": [{
-				"owner": "cpp",
-				"fileLocation": "autoDetect",
-				"pattern": {
-					"regexp": "^(.*):(\\d+):(\\d+):\\s+(note|warning|error):\\s+(.*)$",
-					"file": 1,
-					"line": 2,
-					"column": 3,
-					"severity": 4,
-					"message": 5
+			"problemMatcher": [
+				{
+					"owner": "cpp",
+					"fileLocation": "autoDetect",
+					"pattern": {
+						"regexp": "^(.*):(\\d+):(\\d+):\\s+(note|warning|error):\\s+(.*)$",
+						"file": 1,
+						"line": 2,
+						"column": 3,
+						"severity": 4,
+						"message": 5
+					},
+					"severity": "info",
+					"source": "Compiler"
 				},
-				"severity": "info",
-				"source": "Compiler"
-			},
-			{
-				"owner": "cpp",
-				"fileLocation": "autoDetect",
-				"pattern": {
-					"regexp": "^.*ld.exe: .*?:.*?:(.*?):.*?: (.*)$",
-					"file": 1,
-					"message": 2
-				},
-				"severity": "info",
-				"source": "Linker"
-			}]
+				{
+					"owner": "cpp",
+					"fileLocation": "autoDetect",
+					"pattern": {
+						"regexp": "^.*ld.exe: .*?:.*?:(.*?):.*?: (.*)$",
+						"file": 1,
+						"message": 2
+					},
+					"severity": "info",
+					"source": "Linker"
+				}
+			]
 		},
 		{
 			"label": "Run",

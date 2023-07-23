@@ -5,43 +5,6 @@
 #include<memory>
 #include"errs.hpp"
 namespace pygame{
-    class Cube;
-    class Rect3D;
-    class Cube{
-        glm::vec3 _pos;
-        public:
-            float w;//x-wise
-            float h;//y-wise
-            float l;//z-wise
-            float yaw=0.0;
-            float pitch=0.0;
-            float roll=0.0;
-            Cube() = default;
-            Cube(glm::vec3 pos,float w,float h,float l)
-            : _pos(pos),w(w),h(h),l(l){
-            }
-            glm::vec3 centerD() const{
-                return glm::vec3(w/2.0,h/2.0,l/2.0);
-            }
-            glm::vec3 center() const{
-                return _pos+centerD();
-            }
-            glm::vec3& pos(){
-                return _pos;
-            }
-            void set_center(glm::vec3 center){
-                _pos = center-centerD();
-            }
-            virtual glm::mat4 modelmatrix() const{
-                glm::mat4 trans(1.0);
-                trans = glm::translate(trans,center());
-                trans = glm::rotate(trans,glm::radians(yaw),glm::vec3(0.0,1.0,0.0));
-                trans = glm::rotate(trans,glm::radians(pitch),glm::vec3(1.0,0.0,0.0));
-                trans = glm::rotate(trans,glm::radians(roll),glm::vec3(0.0,0.0,-1.0));
-                trans = glm::translate(trans,-centerD());
-                return trans;
-            }
-    };
     class Rect3D{
         public:
             glm::vec3 bottomleft;
@@ -51,51 +14,133 @@ namespace pygame{
             Rect3D() = default;
             Rect3D(glm::vec3 bl,glm::vec3 br,glm::vec3 tl,glm::vec3 tr)
             : bottomleft(bl),bottomright(br),topleft(tl),topright(tr){}
-            virtual glm::mat4 modelmatrix() const{
+            glm::mat4 modelmatrix() const{
                 return glm::mat4(1.0);
             }
-            virtual glm::vec3 center() const{
+            glm::vec3 center() const{
                 return (bottomleft+bottomright+topleft+topright)/4.0f;
             }
     };
-    class Camera{
+    struct YPR{
+        float yaw;
+        float pitch;
+        float roll;
+        YPR() : yaw(0.0f), pitch(0.0f), roll(0.0f){}
+        YPR(float y,float p,float r) : yaw(y), pitch(p), roll(r){}
+        glm::mat4 modelmatrix(glm::mat4 trans) const{
+            trans = glm::rotate(trans,pitch,glm::vec3(1.0f,0.0f,0.0f));
+            trans = glm::rotate(trans,yaw,glm::vec3(0.0f,1.0f,0.0f));
+            trans = glm::rotate(trans,roll,glm::vec3(0.0f,0.0f,-1.0f));
+            return trans;
+        }
+        glm::mat4 viewmatrix() const{
+            glm::mat4 trans{1.0f};
+            trans = glm::rotate(trans,pitch,glm::vec3(1.0f,0.0f,0.0f));
+            trans = glm::rotate(trans,yaw+glm::half_pi<float>(),glm::vec3(0.0f,1.0f,0.0f));
+            trans = glm::rotate(trans,roll,direction());
+            return trans;
+        }
+        glm::vec3 direction() const{
+            return glm::normalize(glm::vec3(cos(yaw)*cos(pitch),-sin(pitch),sin(yaw)*cos(pitch)));
+        }
+        glm::vec3 ywfront() const{
+            return glm::vec3(cos(yaw),0.0f,sin(yaw));
+        }
+        glm::vec3 ywright() const{
+            return glm::vec3(-sin(yaw),0.0f,cos(yaw));
+        }
+        glm::vec3 right() const{
+            return glm::mat3(glm::rotate(glm::mat4(1.0f),pitch,ywright()))*worldup();
+        }
+        glm::vec3 up() const{
+            return glm::mat3(glm::rotate(glm::mat4(1.0f),pitch,ywright()))*worldup();
+        }
+        glm::vec3 worldup() const{
+            return glm::vec3(sin(roll),cos(roll),0.0f);
+        }
+    };
+    class Cube{
+        glm::vec3 _pos;
+        glm::vec3 _dims;
+        YPR angles;
+        glm::vec3 xo() const{
+            return {_dims.x,0.0f,0.0f};
+        }
+        glm::vec3 yo() const{
+            return {0.0f,_dims.y,0.0f};
+        }
+        glm::vec3 zo() const{
+            return {0.0f,0.0f,_dims.z};
+        }
+        constexpr static glm::vec3 ORIGIN{0.0f,0.0f,0.0f};
         public:
-            glm::vec3 pos;
-            float yaw,pitch,roll;
-            Camera() = default;
-            Camera(glm::vec3 pos,float yaw=0.0,float pitch=0.0,float roll=0.0) : pos(pos),yaw(yaw),pitch(pitch),roll(roll)
-            {}
-            glm::vec3 worldup() const{
-                float rroll = glm::radians(roll);
-                return glm::vec3(sin(rroll),cos(rroll),0);
+            YPR& a(){
+                return angles;
             }
-            glm::mat4 viewmatrix() const{
-                glm::mat4 trans = glm::mat4(1.0);
-                trans = glm::rotate(trans,-glm::radians(pitch),glm::vec3(1.0,0.0,0.0));
-                trans = glm::rotate(trans,glm::radians(yaw+90),glm::vec3(0.0,1.0,0.0));
-                trans = glm::rotate(trans,-glm::radians(roll),direction());
-                trans = glm::translate(trans,-pos);
-                return trans;
+            YPR a() const{
+                return angles;
             }
-            glm::vec3 direction() const{
-                float ryaw = glm::radians(yaw);
-                float rpitch = glm::radians(pitch);
-                return glm::normalize(glm::vec3(cos(ryaw)*cos(rpitch),sin(rpitch),sin(ryaw)*cos(rpitch)));
+            Cube() = default;
+            Cube(const glm::vec3& spos,const glm::vec3& dims): _pos(spos), _dims(dims){}
+            Rect3D front_face() const{
+                return {xo()+zo(),zo(),_dims,yo()+zo()};
             }
-            glm::vec3 xzfront() const{
-                float ryaw = glm::radians(yaw);
-                return glm::vec3(cos(ryaw),0,sin(ryaw));
+            Rect3D back_face() const{
+                return {ORIGIN,xo(),yo(),xo()+yo()};
             }
-            glm::vec3 xzright() const{
-                float ryaw = glm::radians(yaw);
-                return glm::vec3(-sin(ryaw),0,cos(ryaw));
+            Rect3D right_face() const{
+                return {xo(),xo()+zo(),xo()+yo(),_dims};
             }
-            glm::vec3 right() const{
-                return glm::cross(direction(),up());
+            Rect3D left_face() const{
+                return {zo(),ORIGIN,yo()+zo(),yo()};
             }
-            glm::vec3 up() const{
-                return glm::mat3(glm::rotate(glm::mat4(1.0),glm::radians(pitch),xzright()))*worldup();
+            Rect3D top_face() const{
+                return {yo(),xo()+yo(),yo()+zo(),_dims};
             }
+            Rect3D bottom_face() const{
+                return {xo(),ORIGIN,xo()+zo(),zo()};
+            }
+            glm::vec3& pos(){
+                return _pos;
+            }
+            glm::vec3 pos() const{
+                return _pos;
+            }
+            glm::vec3& dims(){
+                return _dims;
+            }
+            glm::vec3 dims() const{
+                return _dims;
+            }
+            glm::vec3 centerD() const{
+                return _dims/2.0f;
+            }
+            glm::vec3 center() const{
+                return _pos+centerD();
+            }
+            void set_center(glm::vec3 center){
+                _pos = center-centerD();
+            }
+            glm::mat4 modelmatrix() const{
+                return glm::translate(
+                        angles.modelmatrix(
+                            glm::translate(
+                                glm::mat4(1.0f),
+                                center()
+                            )
+                        ),
+                        -centerD()
+                    );
+            }
+    };
+    struct Camera{
+        glm::vec3 pos;
+        YPR angles;
+        Camera() : pos(0.0f), angles(){}
+        Camera(glm::vec3 pos,const YPR& angles={}) : pos(pos),angles(angles){}
+        glm::mat4 viewmatrix() const{
+            return glm::translate(angles.viewmatrix(),-pos);
+        }
     };
     class Context3D{
         public:
@@ -104,13 +149,9 @@ namespace pygame{
             float near_clip;
             float far_clip;
             float aspect_ratio;
-            Context3D(float fov=70.0f,float near=0.1f,float far=100.0f,float screenw=1920.0f,float screenh=1080.0f)
-            : fov(fov), near_clip(near), far_clip(far), aspect_ratio(screenw/screenh){
-            }
-            void init_camera(glm::vec3 pos={0.0f,1.0f,0.0f},float yaw=0.0f,float pitch=0.0f,float roll=0.0f){
-                camera = Camera(pos,yaw,pitch,roll);
+            Context3D(const Camera& cam,float fov=glm::radians(70.0f),float near=0.1f,float far=100.0f,float aspect_w_over_h=16.0f/9.0f)
+            : camera(cam), fov(fov), near_clip(near), far_clip(far), aspect_ratio(aspect_w_over_h){
             }
     };
-    typedef Context3D* pContext3D;
 }
 #endif

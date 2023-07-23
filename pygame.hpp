@@ -16,6 +16,11 @@ namespace pygame{
         constexpr float SH = 1080.0f;
         constexpr float HSW = SW/2.0f;
         constexpr float HSH = SH/2.0f;
+        constexpr float half_pi = glm::half_pi<float>();
+        constexpr float pi = glm::pi<float>();
+        //https://xkcd.com/1292
+        constexpr float pau = static_cast<float>(glm::pi<long double>()*1.5l);
+        constexpr float tau = glm::two_pi<float>();
         const Point SCRCNTR = {HSW,HSH};
         const glm::vec2 SCRDIMS = {SW,SH};
         using namespace pygame::color::colcon;
@@ -28,7 +33,12 @@ namespace pygame{
         glPixelStorei(GL_UNPACK_ALIGNMENT,1);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_CULL_FACE);
         drawInit();
+    }
+    void setupTemplate0_3D(){
+        setupTemplate0();
+        glEnable(GL_DEPTH_TEST);
     }
     using display::quit;
     void drawInit(){
@@ -42,7 +52,8 @@ namespace pygame{
     //WARNING: Requires glClearColor to be set!
     void draw_made_with_glpy(display::Window& win,float insecs=1.625,float staysecs=0.875,float outsecs=1.625){
         const float FPS=60.00;
-        prTexture tex = prLoadTexture2D("rsrc/glpy.png");
+        sTexture _tex{loadTexture2D("rsrc/glpy.png")};
+        zTexture tex{*_tex};
         #define sec2frm(sec) (glm::round((sec)*FPS))
         float inframes = sec2frm(insecs);
         float stayframes = sec2frm(staysecs);
@@ -54,8 +65,8 @@ namespace pygame{
         glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
         float visibility;
         time::Clock clok;
-        const float size = 3.5;
-        Point middle((1920.0-tex->getWidth()*size)/2.0,(1080.0-tex->getHeight()*size)/2.0);
+        constexpr float size = 3.5f;
+        Point middle((1920.0-tex.width()*size)/2.0,(1080.0-tex.height()*size)/2.0);
         while(!win.should_close()){
             glfwPollEvents();
             win.eventqueue.get();
@@ -67,13 +78,16 @@ namespace pygame{
             }else{
                 visibility = 1-((frame-stayframes-inframes)/outframes);
             }
-            tex.alpha = visibility;
+            tex.alpha() = visibility;
             pygame::blit(tex,middle,size);
             win.swap_buffers();
             if(frame>(inframes+stayframes+outframes))break;
             clok.tick(FPS);
             frame++;
         }
+    }
+    std::string dumppos(const glm::vec3& pos){
+        return "("+std::to_string(pos.x)+","+std::to_string(pos.y)+","+std::to_string(pos.z)+")";
     }
 }
 #endif//PYGAME_HPP

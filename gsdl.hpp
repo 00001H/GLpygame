@@ -70,43 +70,32 @@ namespace pygame{
                   &&((point.y)>y));//bottomer than top
         }
     };
-    struct prTexture{
-        const Texture* p;
-        float alpha=1.0;
-        float brightness=1.0;
-        prTexture(const Texture* p) : p(p){}
-        prTexture(const Texture& p) : p(&p){}
-        prTexture() = default;
-        const Texture* operator->() const noexcept{
-            return p;
-        }
-    };
 #ifndef PYGAME_NO3D
     struct CubeTexture{
         public:
-            prTexture front;
-            prTexture back;
-            prTexture top;
-            prTexture bottom;
-            prTexture left;
-            prTexture right;
-            CubeTexture(prTexture face) : 
+            zTexture front;
+            zTexture back;
+            zTexture top;
+            zTexture bottom;
+            zTexture left;
+            zTexture right;
+            CubeTexture(const zTexture& face) : 
             front(face),back(face),top(face),bottom(face),
             left(face),right(face){}
     };
 #endif
-    Texture* loadTexture2D(const char* filename){
+    sTexture loadTexture2D(const char* filename){
         int w,h,color_chnls;
         unsigned char *data = stbi_load(filename,&w,&h,&color_chnls,0);
         if(data==nullptr){
             throw pygame::error(std::string("Unable to load texture: ")+filename);
         }
-        Texture* v = new Texture(data,w,h,(color_chnls==3)?GL_RGB:GL_RGBA,GL_RGBA);
+        sTexture v{new Texture(data,w,h,(color_chnls==3)?GL_RGB:GL_RGBA,GL_RGBA)};
+        if(!v){
+            throw pygame::error(std::string("Unable to create texture: ")+filename);
+        }
         stbi_image_free(data);
         return v;
-    }
-    prTexture inline prLoadTexture2D(const char* filename){
-        return prTexture(loadTexture2D(filename));
     }
     class Renderbuffer{
         private:
@@ -161,7 +150,7 @@ namespace pygame{
                 if(colorattach>GL_MAX_COLOR_ATTACHMENTS){
                     throw pygame::error("Too many color attachments for framebuffer "+std::to_string(fbo)+" !");
                 }
-                glNamedFramebufferTexture(fbo,attachment_point,texture.getId(),0);
+                glNamedFramebufferTexture(fbo,attachment_point,texture.id(),0);
             }
             static void unbind(GLenum target=GL_FRAMEBUFFER){
                 glBindFramebuffer(target,0);
@@ -251,8 +240,14 @@ namespace pygame{
         void uv3(const char* var, glm::vec3 v3) const{
             glProgramUniform3fv(program,getLocation(var),1,glm::value_ptr(v3));
         }
+        void um3(const char* var, glm::mat3 m3) const{
+            glProgramUniformMatrix3fv(program,getLocation(var),1,GL_FALSE,glm::value_ptr(m3));
+        }
         void uv4(const char* var, glm::vec4 v4) const{
             glProgramUniform4fv(program,getLocation(var),1,glm::value_ptr(v4));
+        }
+        void um4(const char* var, glm::mat4 m4) const{
+            glProgramUniformMatrix4fv(program,getLocation(var),1,GL_FALSE,glm::value_ptr(m4));
         }
         void uimg(const char* var, GLuint64 hndl) const{
             glProgramUniformHandleui64ARB(program,getLocation(var),hndl);
@@ -352,30 +347,31 @@ namespace pygame{
         glEnableVertexAttribArray(1);
 #endif
     }
-    void invoke_shader(float* data, unsigned int data_cnt, unsigned int vert_cnt, const Shader& shdr, GLenum drawmode=GL_TRIANGLE_STRIP, GLuint vao=colored_polygon_vao, GLuint vbo=colored_polygon_vbo){
-        glBindVertexArray(vao);
-        glBindBuffer(GL_ARRAY_BUFFER,vbo);
+    inline void invoke_shader_nb(float* data,unsigned int data_cnt,unsigned int vert_cnt,GLenum drawmode=GL_TRIANGLE_STRIP){
         glBufferSubData(GL_ARRAY_BUFFER,0,data_cnt*sizeof(float),data);
-        shdr.use();
         glDrawArrays(drawmode,0,vert_cnt);
     }
-    void blit(const prTexture& image,Point location,float size,float rotation=0.0f,
-    Shader& shader=texture_shader){
+    inline void invoke_shader(float* data,unsigned int data_cnt,unsigned int vert_cnt,const Shader& shdr,GLenum drawmode=GL_TRIANGLE_STRIP, GLuint vao=colored_polygon_vao, GLuint vbo=colored_polygon_vbo){
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER,vbo);
+        shdr.use();
+        invoke_shader_nb(data,data_cnt,vert_cnt,drawmode);
+    }
+    void blit(const zTexture& image,Point location,float size=1.0f,float rotation=0.0f,Shader& shader=texture_shader){
         float vtx[8] = {
             0.0f,1.0f,
-            0.0f,0.0f,
             1.0f,1.0f,
-            1.0f,0.0
+            0.0f,0.0f,
+            1.0f,0.0f
         };
-        GLint imglocation = shader.getLocation("img");
         glUseProgram(shader.program);
-        glUniformHandleui64ARB(imglocation,image->getHandle());
+        shader.uimg("img",image.handle());
         shader.uv2("position",location);
         shader.u1f("size",size);
-        shader.u2f("imgdims",image->getWidth(),image->getHeight());
+        shader.u2f("imgdims",image.width(),image.height());
         shader.u1f("rotation",-rotation);
-        shader.u1f("transparency",image.alpha);
-        shader.u1f("brightness",image.brightness);
+        shader.u1f("transparency",image.alpha());
+        shader.u1f("brightness",image.brightness());
         invoke_shader(vtx,8,4,shader,GL_TRIANGLE_STRIP,texture_vao,texture_vbo);
     }
     enum class align{
@@ -460,8 +456,8 @@ namespace pygame{
             }catch(FTError&){
                 ch = font.loadChar('?');
             }
-            glUniformHandleui64ARB(imgloc,ch->tex->getHandle());
-            sz = Point((float)ch->tex->getWidth(),(float)ch->tex->getHeight());
+            glUniformHandleui64ARB(imgloc,ch->tex->handle());
+            sz = Point((float)ch->tex->width(),(float)ch->tex->height());
             text_shader.uv2("imgdims",sz);
             float vtx[8] = {
                 0.0f,0.0f,
@@ -550,7 +546,7 @@ namespace pygame{
             shader.u1f("size",1.0f);
             shader.u1f("rotation",0.0f);
             shader.uv4("color",color);
-            invoke_shader(vtx,8,4,shader);
+            invoke_shader(vtx,8u,4u,shader);
         }
         void linerect(Line in,float thickness,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shader=single_color_shader){
             float vtx[8uz] = {
@@ -570,119 +566,59 @@ namespace pygame{
             shader.u2f("rotation_center",0.5f,0.5f);
         }
 #ifndef PYGAME_NO3D
-        void rect3D(pContext3D context,Rect3D in,prTexture text){
-            glUseProgram(texture_3d_shader.program);
-            glBindVertexArray(texture_3d_vao);
-            glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
-            glUniformMatrix4fv(texture_3d_shader.getLocation("view"),1,GL_FALSE,glm::value_ptr(context->camera.viewmatrix()));
-            glm::mat4 projmat = glm::perspective(glm::radians(context->fov),context->aspect_ratio,
-                                context->near_clip,context->far_clip);
-            glUniformMatrix4fv(texture_3d_shader.getLocation("projection"),1,GL_FALSE,glm::value_ptr(projmat));
-            glm::mat4 model = in.modelmatrix();
-            glUniformMatrix4fv(texture_3d_shader.getLocation("mode"),1,GL_FALSE,glm::value_ptr(model));
-            glm::vec3 bl = in.bottomleft;
-            glm::vec3 br = in.bottomright;
-            glm::vec3 tl = in.topleft;
-            glm::vec3 tr = in.topright;
+        void rect3D_nb_nm(const Context3D& context,const Rect3D& in,const zTexture& texture){
+            texture_3d_shader.uimg("tex",texture.handle());
+            texture_3d_shader.u1f("alpha",texture.alpha());
+            texture_3d_shader.u1f("bright",texture.brightness());
+            const glm::vec3& bl = in.bottomleft;
+            const glm::vec3& br = in.bottomright;
+            const glm::vec3& tl = in.topleft;
+            const glm::vec3& tr = in.topright;
             float vtx[20] = {
-                tl.x,tl.y,tl.z,1.0f,1.0f,
-                tr.x,tr.y,tr.z,0.0f,1.0f,
-                bl.x,bl.y,bl.z,1.0f,0.0f,
-                br.x,br.y,br.z,0.0f,0.0
+                bl.x,bl.y,bl.z,1.0f,1.0f,
+                tl.x,tl.y,tl.z,1.0f,0.0f,
+                br.x,br.y,br.z,0.0f,1.0f,
+                tr.x,tr.y,tr.z,0.0f,0.0f
             };
-            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-            glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),text->getHandle());
-            glUniform1f(texture_3d_shader.getLocation("alpha"),text.alpha);
-            glUniform1f(texture_3d_shader.getLocation("bright"),text.brightness);
-            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            invoke_shader_nb(vtx,20u,4u);
         }
-        void cube(pContext3D context,Cube in,CubeTexture textures){
-            glUseProgram(texture_3d_shader.program);
+        void rect3D(const Context3D& context,const Rect3D& in,const zTexture& texture){
+            texture_3d_shader.use();
             glBindVertexArray(texture_3d_vao);
             glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
-            glUniformMatrix4fv(texture_3d_shader.getLocation("view"),1,GL_FALSE,glm::value_ptr(context->camera.viewmatrix()));
-            glm::mat4 projmat = glm::perspective(glm::radians(context->fov),context->aspect_ratio,
-                                context->near_clip,context->far_clip);
-            glUniformMatrix4fv(texture_3d_shader.getLocation("projection"),1,GL_FALSE,glm::value_ptr(projmat));
-            glm::mat4 model = in.modelmatrix();
-            glUniformMatrix4fv(texture_3d_shader.getLocation("model"),1,GL_FALSE,glm::value_ptr(model));
-            if(textures.back.p!=nullptr){
-                float vtx[20] = {
-                    0.0f ,in.h,0.0f,1.0f,1.0f,
-                    in.w,in.h,0.0f,0.0f,1.0f,
-                    0.0f ,0.0f ,0.0f,1.0f,0.0f,
-                    in.w,0.0f ,0.0f,0.0f,0.0
-                };
-                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.back->getHandle());
-                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.back.alpha);
-                glUniform1f(texture_3d_shader.getLocation("bright"),textures.back.brightness);
-                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            texture_3d_shader.um4("view",context.camera.viewmatrix());
+            glm::mat4 projmat = glm::perspective(context.fov,context.aspect_ratio,
+                                context.near_clip,context.far_clip);
+            texture_3d_shader.um4("projection",projmat);
+            texture_3d_shader.um4("model",in.modelmatrix());
+            rect3D_nb_nm(context,in,texture);
+        }
+        void cube(const Context3D& context,const Cube& in,const CubeTexture& textures){
+            texture_3d_shader.use();
+            glBindVertexArray(texture_3d_vao);
+            glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
+            texture_3d_shader.um4("view",context.camera.viewmatrix());
+            glm::mat4 projmat = glm::perspective(context.fov,context.aspect_ratio,
+                                context.near_clip,context.far_clip);
+            texture_3d_shader.um4("projection",projmat);
+            texture_3d_shader.um4("model",in.modelmatrix());
+            if(textures.back){
+                rect3D_nb_nm(context,in.back_face(),textures.back);
             }
-            if(textures.front.p!=nullptr){
-                float vtx[20] = {
-                    0.0f ,in.h,in.l,0.0f,1.0f,
-                    0.0f ,0.0f ,in.l,0.0f,0.0f,
-                    in.w,in.h,in.l,1.0f,1.0f,
-                    in.w,0.0f ,in.l,1.0f,0.0
-                };
-                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.front->getHandle());
-                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.front.alpha);
-                glUniform1f(texture_3d_shader.getLocation("bright"),textures.front.brightness);
-                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            if(textures.front){
+                rect3D_nb_nm(context,in.front_face(),textures.front);
             }
-            if(textures.left.p!=nullptr){
-                float vtx[20] = {
-                    0.0f,0.0f ,0.0f ,0.0f,0.0f,
-                    0.0f,0.0f ,in.l,1.0f,0.0f,
-                    0.0f,in.h,0.0f ,0.0f,1.0f,
-                    0.0f,in.h,in.l,1.0f,1.0
-                };
-                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.left->getHandle());
-                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.left.alpha);
-                glUniform1f(texture_3d_shader.getLocation("bright"),textures.left.brightness);
-                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            if(textures.left){
+                rect3D_nb_nm(context,in.left_face(),textures.left);
             }
-            if(textures.right.p!=nullptr){
-                float vtx[20] = {
-                    in.w,0.0f ,0.0f ,1.0f,0.0f,
-                    in.w,in.h,0.0f ,1.0f,1.0f,
-                    in.w,0.0f ,in.l,0.0f,0.0f,
-                    in.w,in.h,in.l,0.0f,1.0
-                };
-                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.right->getHandle());
-                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.right.alpha);
-                glUniform1f(texture_3d_shader.getLocation("bright"),textures.right.brightness);
-                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            if(textures.right){
+                rect3D_nb_nm(context,in.right_face(),textures.right);
             }
-            if(textures.top.p!=nullptr){
-                float vtx[20] = {
-                    0.0f ,in.h,in.l,0.0f,0.0f,
-                    in.w,in.h,in.l,1.0f,0.0f,
-                    0.0f ,in.h,0.0f ,0.0f,1.0f,
-                    in.w,in.h,0.0f ,1.0f,1.0
-                };
-                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.top->getHandle());
-                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.top.alpha);
-                glUniform1f(texture_3d_shader.getLocation("bright"),textures.top.brightness);
-                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            if(textures.top){
+                rect3D_nb_nm(context,in.top_face(),textures.top);
             }
-            if(textures.bottom.p!=nullptr){
-                float vtx[20] = {
-                    0.0f ,0.0f,in.l,0.0f,0.0f,
-                    0.0f ,0.0f,0.0f ,0.0f,1.0f,
-                    in.w,0.0f,in.l,1.0f,0.0f,
-                    in.w,0.0f,0.0f ,1.0f,1.0
-                };
-                glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
-                glUniformHandleui64ARB(texture_3d_shader.getLocation("tex"),textures.bottom->getHandle());
-                glUniform1f(texture_3d_shader.getLocation("alpha"),textures.bottom.alpha);
-                glUniform1f(texture_3d_shader.getLocation("bright"),textures.bottom.brightness);
-                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+            if(textures.bottom){
+                rect3D_nb_nm(context,in.bottom_face(),textures.bottom);
             }
         }
     #endif
