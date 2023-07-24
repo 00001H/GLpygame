@@ -1,14 +1,6 @@
 #ifndef CHLIBS_H
 #define CHLIBS_H
-#include<iostream>
-#include<string>
-#include<stdexcept>
-#include<unordered_map>
-#include<glad/glad.h>
-#include<optional>
-#include<filesystem>
-#include<cppp.hpp>
-#include<memory>
+#include"include.hpp"
 #include"texture.hpp"
 namespace pygame{
     namespace _ft{
@@ -23,17 +15,14 @@ namespace pygame{
         using std::logic_error::logic_error;
     };
     struct Ch_Texture{
-        Texture* tex;
+        sTexture tex;
         float xoffset;
         float ascent;
         float descent;
         float distance;
-        Ch_Texture(Texture* tex) : tex(tex){}
+        Ch_Texture(sTexture&& t) : tex(std::move(t)){}
         Ch_Texture(const Ch_Texture&) = delete;
         Ch_Texture& operator=(const Ch_Texture&) = delete;
-        ~Ch_Texture(){
-            delete tex;
-        }
     };
     using char_tex = const Ch_Texture*;
     class _Font{
@@ -59,14 +48,14 @@ namespace pygame{
                 }
                 auto glyf = face->glyph;
                 auto bmap = glyf->bitmap;
-                Texture* t;
+                sTexture t;
                 static unsigned char colorbyte = 0;//doesn't get destroyed on function exit
                 if(bmap.width==0 && bmap.rows==0){
-                    t = new Texture(&colorbyte,1,1,GL_RED,GL_RED,GL_NEAREST,GL_NEAREST,false);
+                    t.reset(new Texture(&colorbyte,1,1,GL_RED,GL_RED,GL_NEAREST,GL_NEAREST,false));
                 }else{
-                    t = new Texture(bmap.buffer,bmap.width,bmap.rows,GL_RED,GL_RED,GL_LINEAR,GL_LINEAR,false);
+                    t.reset(new Texture(bmap.buffer,bmap.width,bmap.rows,GL_RED,GL_RED,GL_LINEAR,GL_LINEAR,false));
                 }
-                charmap.try_emplace(ch,t);
+                charmap.try_emplace(ch,std::move(t));
                 Ch_Texture& chtx = charmap.at(ch);
                 chtx.xoffset = float(glyf->metrics.horiBearingX)/64.0f;
                 chtx.ascent = float(glyf->metrics.horiBearingY)/64.0f;
@@ -76,9 +65,6 @@ namespace pygame{
             }
             void done(){
                 FT_Done_Face(face);
-                for(const auto& [k,v] : charmap){
-                    delete v.tex;
-                }
             }
     };
     class Font{
@@ -92,12 +78,15 @@ namespace pygame{
             }
             Font& operator=(const Font&) = delete;
             Font(const Font&) = delete;
-            Font(Font&& x) : pimpl(std::move(std::move(x).pimpl)){}
+            Font(Font&& x) : pimpl(std::move(x.pimpl)){
+                x.pimpl = nullptr;
+            }
             ~Font(){
                 destroy();
             }
             float getHeight() const{
-                return pimpl->getHeight();
+                if(pimpl!=nullptr)return pimpl->getHeight();
+                else throw std::bad_optional_access();
             }
             void set_dimensions(_ft::FT_UInt w,_ft::FT_UInt h){
                 if(pimpl!=nullptr)pimpl->set_dimensions(w,h);
@@ -106,6 +95,7 @@ namespace pygame{
             void destroy(){
                 if(pimpl!=nullptr){
                     pimpl->done();
+                    pimpl = nullptr;
                 }
             }
             char_tex loadChar(cppp::codepoint ch){

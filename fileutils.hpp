@@ -1,12 +1,6 @@
-#ifndef FILEUTILS_H
-#define FILEUTILS_H
-#include<iostream>
-#include<stdexcept>
-#include<fstream>
-#include<sys/stat.h>
-
+#ifndef GLPY_FILEUTILS_HPP
+#define GLPY_FILEUTILS_HPP
 namespace pygame{
-
     std::string loadStringFile(const std::string& fname){
         std::ifstream file;
         file.open(fname.c_str());
@@ -20,6 +14,5 @@ namespace pygame{
         struct stat trash;
         return stat(filename.c_str(),&trash) != -1;
     }
-    
 }
 #endif//FILEUTILS_H

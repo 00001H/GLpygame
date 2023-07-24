@@ -1,28 +1,12 @@
-#ifndef GSDL_H
-#define GSDL_H
-
-#include<algorithm>
-#include<string>
-#include<stdexcept>
-#include<memory>
-#include<thread>
-
-#include<glad/glad.h>
-#include<glfw/glfw3.h>
-#define GLM_FORCE_SWIZZLE
-#include<glm/glm.hpp>
-#include<glm/gtc/type_ptr.hpp>
-#include<glm/gtc/matrix_transform.hpp>
-#define STB_IMAGE_IMPLEMENTATION
-#include"stb_image.h"
-#undef STB_IMAGE_IMPLEMENTATION
-
+#ifndef GLPY_GSDL_HPP
+#define GLPY_GSDL_HPP
+#include"include.hpp"
 #include"fileutils.hpp"
 #include"chlibs.hpp"
 #include"texture.hpp"
+#ifndef PYGAME_NO3D
 #include"3dgeometry.hpp"
-#include"cppp.hpp"
-
+#endif
 namespace pygame{
     using glm::vec2;
     using glm::vec3;
@@ -357,7 +341,7 @@ namespace pygame{
         shdr.use();
         invoke_shader_nb(data,data_cnt,vert_cnt,drawmode);
     }
-    void blit(const zTexture& image,Point location,float size=1.0f,float rotation=0.0f,Shader& shader=texture_shader){
+    void blit(const zTexture& image,Point location,float size=1.0f,float rotation=0.0f,Shader& shader=texture_shader,bool flipv=true){
         float vtx[8] = {
             0.0f,1.0f,
             1.0f,1.0f,
@@ -366,13 +350,15 @@ namespace pygame{
         };
         glUseProgram(shader.program);
         shader.uimg("img",image.handle());
-        shader.uv2("position",location);
         shader.u1f("size",size);
+        shader.uv2("position",location);
         shader.u2f("imgdims",image.width(),image.height());
         shader.u1f("rotation",-rotation);
         shader.u1f("transparency",image.alpha());
         shader.u1f("brightness",image.brightness());
+        shader.u1ui("flipv",flipv);
         invoke_shader(vtx,8,4,shader,GL_TRIANGLE_STRIP,texture_vao,texture_vbo);
+        shader.u1ui("flipv",true);
     }
     enum class align{
         LEFT,CENTER,RIGHT
@@ -566,7 +552,7 @@ namespace pygame{
             shader.u2f("rotation_center",0.5f,0.5f);
         }
 #ifndef PYGAME_NO3D
-        void rect3D_nb_nm(const Context3D& context,const Rect3D& in,const zTexture& texture){
+        void rect3D_nb_nm(const Rect3D& in,const zTexture& texture){
             texture_3d_shader.uimg("tex",texture.handle());
             texture_3d_shader.u1f("alpha",texture.alpha());
             texture_3d_shader.u1f("bright",texture.brightness());
@@ -591,7 +577,7 @@ namespace pygame{
                                 context.near_clip,context.far_clip);
             texture_3d_shader.um4("projection",projmat);
             texture_3d_shader.um4("model",in.modelmatrix());
-            rect3D_nb_nm(context,in,texture);
+            rect3D_nb_nm(in,texture);
         }
         void cube(const Context3D& context,const Cube& in,const CubeTexture& textures){
             texture_3d_shader.use();
@@ -603,22 +589,22 @@ namespace pygame{
             texture_3d_shader.um4("projection",projmat);
             texture_3d_shader.um4("model",in.modelmatrix());
             if(textures.back){
-                rect3D_nb_nm(context,in.back_face(),textures.back);
+                rect3D_nb_nm(in.back_face(),textures.back);
             }
             if(textures.front){
-                rect3D_nb_nm(context,in.front_face(),textures.front);
+                rect3D_nb_nm(in.front_face(),textures.front);
             }
             if(textures.left){
-                rect3D_nb_nm(context,in.left_face(),textures.left);
+                rect3D_nb_nm(in.left_face(),textures.left);
             }
             if(textures.right){
-                rect3D_nb_nm(context,in.right_face(),textures.right);
+                rect3D_nb_nm(in.right_face(),textures.right);
             }
             if(textures.top){
-                rect3D_nb_nm(context,in.top_face(),textures.top);
+                rect3D_nb_nm(in.top_face(),textures.top);
             }
             if(textures.bottom){
-                rect3D_nb_nm(context,in.bottom_face(),textures.bottom);
+                rect3D_nb_nm(in.bottom_face(),textures.bottom);
             }
         }
     #endif

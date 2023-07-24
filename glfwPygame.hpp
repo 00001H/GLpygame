@@ -1,12 +1,6 @@
-#ifndef GLFWPYGAME_H
-#define GLFWPYGAME_H
-
-#include<vector>
-#include<memory>
-#include<any>
-#include<GLFW/glfw3.h>
-#include<unordered_map>
-#include<stdexcept>
+#ifndef GLFWPYGAME_HPP
+#define GLFWPYGAME_HPP
+#include"include.hpp"
 #include"gsdl.hpp"
 namespace pygame{
     namespace{
@@ -259,7 +253,9 @@ namespace pygame{
                     return get_mouse_button(btn);
                 }
                 ~Window(){
-                    if(__is_init)close();
+                    if(__is_init){
+                        close();
+                    }
                     if(glCtx==this){
                         glCtx=nullptr;
                     }

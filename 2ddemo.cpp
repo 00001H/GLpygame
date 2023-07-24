@@ -8,6 +8,7 @@ using pygame::display::Window;
 using pygame::time::Clock;
 int main(){
     init();
+{
     glVer(4,6);
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     Window win{800,600,"this is a title"};
@@ -39,6 +40,7 @@ int main(){
         win.swap_buffers();
         clk.measure();
     }
+}//RAII: Destroy allocated textures here, before quitting OpenGL.
     pygame::quit();
     return 0;
 }

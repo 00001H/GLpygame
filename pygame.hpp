@@ -1,7 +1,5 @@
 #ifndef PYGAME_HPP
 #define PYGAME_HPP
-#define GLAD_GL_IMPLEMENTATION
-#include<glad/glad.h>
 #ifndef PYGAME_NO3D
 #include"3dgeometry.hpp"
 #endif

@@ -1,11 +1,7 @@
-#include<string>
-#include<cstdio>
-#include<vector>
-#include<utility>
-#include<any>
-#include<iostream>
+#define CPPP_STRUTILS
 #include<pygame.hpp>
-#include<cppp.hpp>
+#include<utility>
+#include<cstdio>
 using std::string;
 using std::vector;
 using std::any_cast;
@@ -52,11 +48,28 @@ std::string surr(bool apply, std::string inside){
     if(apply)return "["+inside+"]";
     return " "+inside+" ";
 }
+template<typename T>
+std::string subst(const std::string& st,const std::initializer_list<T>& il){
+    auto s = il.begin();
+    auto e = il.end();
+    std::string out;
+    for(const char& c : st){
+        if(c=='$'){
+            if(s==e){
+                throw std::logic_error("Not enough arguments to subst!");
+            }
+            out += cppp::str<T>(*(s++));
+        }else{
+            out += c;
+        }
+    }
+    return out;
+}
 std::string seltex(int i){
     std::string a = surr(i==0,"$");
     std::string b = surr(i==1,"$");
     std::string c = surr(i==2,"$");
-    return cppp::subst<>("|$ $ $|",{a,b,c});
+    return subst("|$ $ $|",{a,b,c});
 }
 int main(){
     pygame::init();
@@ -84,7 +97,7 @@ int main(){
     #endif
     Font& DEFAULT_FONT = charlib.loadfont("Cnew","rsrc/courier_new.ttf");
     DEFAULT_FONT.set_dimensions(0,45);
-    sTexture fteximg{loadTexture2D("demorsrc/grid.png")};
+    sTexture fteximg{loadTexture2D("demorsrc/checkers.png")};
     sTexture tex{loadTexture2D("demorsrc/a.png")};
     sTexture tex2{loadTexture2D("demorsrc/b.png")};
     sTexture tex3{loadTexture2D("demorsrc/c.png")};
@@ -119,14 +132,15 @@ int main(){
     float mind = 0.0f;
     Scene scene{1920,1080};
     std::string kr0,kr1,kr2;
-    int krlis[11]{0};
+    std::array<int,12> krlis;
+    krlis.fill(0);
     krlis[4] = 8;
     krlis[6] = 3;
     krlis[7] = 8;
+    krlis[8] = 1;
     int mmsel=3;
     while(!win.should_close()){
         glfwPollEvents();
-        floorcube.pos().x += float(win.get_key(GLFW_KEY_RIGHT)-win.get_key(GLFW_KEY_LEFT))*0.01f;
         for(Event evt : win.eventqueue.get()){
             if(evt.type == MOUSEBUTTONDOWN){
                 MouseButtonEvent mevt = any_cast<MouseButtonEvent>(evt.value);
@@ -145,29 +159,29 @@ int main(){
                 int key = any_cast<KeyEvent>(evt.value).glfw_key;
                 if(key == GLFW_KEY_RIGHT){
                     ++mmsel;
-                    if(mmsel>=11)mmsel=10;
+                    if(mmsel>=12)mmsel=11;
                 }else if(key == GLFW_KEY_LEFT){
                     --mmsel;
                     if(mmsel<0)mmsel=0;
                 }else if(key == GLFW_KEY_UP){
-                    if(mmsel==6||mmsel==7)mmsel=2;
+                    if(mmsel==6||mmsel==7||mmsel==8)mmsel=2;
                     else{
-                        if(mmsel>7&&(mmsel-3)<=7)mmsel -= 2;
+                        if(mmsel>8&&(mmsel-3)<=8)mmsel -= 3;
                         mmsel -= 3;
                         if(mmsel<0)mmsel=0;
                     }
                 }else if(key == GLFW_KEY_DOWN){
                     if(mmsel==6||mmsel==7)mmsel=10;
                     else{
-                        if(mmsel<6&&(mmsel+3)>=6)mmsel += 2;
+                        if(mmsel<6&&(mmsel+3)>=6)mmsel += 3;
                         mmsel += 3;
-                        if(mmsel>=11)mmsel=10;
+                        if(mmsel>=12)mmsel=11;
                     }
                 }else if(key == GLFW_KEY_T){
-                    krlis[mmsel] += 1+win.get_key(GLFW_KEY_LEFT_SHIFT)+win.get_key(GLFW_KEY_LEFT_SHIFT);
+                    krlis[mmsel] += 1+win.get_key(GLFW_KEY_LEFT_SHIFT)*4;
                 }else if(key == GLFW_KEY_G){
-                    krlis[mmsel] -= 1+win.get_key(GLFW_KEY_LEFT_SHIFT)+win.get_key(GLFW_KEY_LEFT_SHIFT);
-                    if(mmsel==7&&krlis[mmsel]<1)krlis[mmsel]=1;
+                    krlis[mmsel] -= 1+win.get_key(GLFW_KEY_LEFT_SHIFT)*4;
+                    if((mmsel==7||mmsel==8)&&krlis[mmsel]<1)krlis[mmsel]=1;
                 }else if(key == GLFW_KEY_E){
                     if(!cur_grab);
                     else if(grabbing)grabbing=nullptr;
@@ -221,9 +235,6 @@ int main(){
         scene.bind(true);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
         pygame::draw::cube(ctx,floorcube,floortex);
-        pole.pos() = cam_pos-glm::vec3(0.1f,cam_pos.y,0.1f);
-        pygame::draw::cube(ctx,pole,ptex);
-        pole.pos() = cam_pos+cam_ang.direction()*2.4f-glm::vec3(0.1f,0.0f,0.1f);
         pygame::draw::cube(ctx,pole,ptex);
         for(CubeObject& p : objects){
             p.draw();
@@ -249,20 +260,22 @@ int main(){
             }
             cam_pos.y += player_yaccel;
         }
-        scene.applyKernel(pygame::Kernal{krlis[0],krlis[1],krlis[2],krlis[3],krlis[4],krlis[5],krlis[8],krlis[9],krlis[10]}/float(krlis[7]),float(krlis[6])/1000.0f);
+        for(int i=0;i<krlis[8];++i){
+            scene.applyKernel(pygame::Kernal{krlis[0],krlis[1],krlis[2],krlis[3],krlis[4],krlis[5],krlis[9],krlis[10],krlis[11]}/float(krlis[7]),float(krlis[6])/1000.0f);
+        }
         scene.draw({0.0f,0.0f},win.width(),win.height());
         pygame::draw_text(DEFAULT_FONT,"GLpygame 3D demo(ver.0226rc1) all pasterights reserved",{10.0f,10.0f});
         pygame::draw_text(DEFAULT_FONT,dumppos(cam_pos),{10.0f,50.0f});
-        kr0 = cppp::subst<int>(seltex(mmsel),{krlis[0],krlis[1],krlis[2]})+" ^ ";
-        kr1 = cppp::subst<int>(seltex(mmsel-3),{krlis[3],krlis[4],krlis[5]})+surr(mmsel==6,std::to_string(krlis[6]))+surr(mmsel==7,std::to_string(krlis[7]));
-        kr2 = cppp::subst<int>(seltex(mmsel-8),{krlis[8],krlis[9],krlis[10]})+" v ";
+        kr0 = subst(seltex(mmsel),{krlis[0],krlis[1],krlis[2]});
+        kr1 = subst(seltex(mmsel-3),{krlis[3],krlis[4],krlis[5]})+"/"+surr(mmsel==6,std::to_string(krlis[6]))+surr(mmsel==7,std::to_string(krlis[7]))+" ^ "+surr(mmsel==8,std::to_string(krlis[8]));
+        kr2 = subst(seltex(mmsel-9),{krlis[9],krlis[10],krlis[11]});
         pygame::draw_text(DEFAULT_FONT,kr0,{30.0f,125.0f});
         pygame::draw_text(DEFAULT_FONT,kr1,{30.0f,175.0f});
         pygame::draw_text(DEFAULT_FONT,kr2,{30.0f,225.0f});
         pygame::draw::rect(Rect({SCRCNTR-glm::vec2(12.0f,12.0f)},{24.0f,24.0f}),GREEN);
         win.swap_buffers();
     }
-}
+}//RAII: Destroy allocated textures here, before quitting OpenGL.
     pygame::quit();
     return 0;
 }

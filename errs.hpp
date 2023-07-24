@@ -1,7 +1,6 @@
-#ifndef ERRS
-#define ERRS
-#include<string>
-#include<stdexcept>
+#ifndef GLPY_ERRS_HPP
+#define GLPY_ERRS_HPP
+#include"include.hpp"
 namespace pygame{
     #define inherits : public
     class error inherits std::exception{

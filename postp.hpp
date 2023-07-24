@@ -1,5 +1,5 @@
-#ifndef POSTP
-#define POSTP
+#ifndef GLPY_POSTP_HPP
+#define GLPY_POSTP_HPP
 #include"gsdl.hpp"
 namespace pygame{
     using Kernal = glm::mat3;
@@ -9,7 +9,7 @@ namespace pygame{
     }
     void ppApply(const zTexture& src, const Framebuffer& dst, Shader& shd=texture_shader, float sz=1.0f){
         dst.bind();
-        blit(src,{0.0f,0.0f},sz,0.0f,shd);
+        blit(src,{0.0f,0.0f},sz,0.0f,shd,false);
     }
     Kernal edgeDet{
         1,1,1,
@@ -93,7 +93,7 @@ namespace pygame{
                 if(dw!=0&&dh!=0)glViewport(0,0,dw,dh);
                 Framebuffer::unbind();
                 glClear(GL_COLOR_BUFFER_BIT);
-                blit(tmphics,pos,sz);
+                blit(tmphics,pos,sz,0.0f,texture_shader,false);
             }
             Scene(const Scene&) = delete;
     };
