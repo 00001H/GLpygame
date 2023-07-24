@@ -138,7 +138,7 @@ namespace pygame{
                     repeatExec = dly;
                 }
                 event::Events eventqueue;
-                void tickRepeats(){
+                void tick_repeats(){
                     if(repeating){
                         ++effectiveRepeatedFrames;
                         if(effectiveRepeatedFrames>=repeatBegin){
@@ -148,6 +148,9 @@ namespace pygame{
                             }
                         }
                     }
+                }
+                [[deprecated("Use snake_case instead")]] void tickRepeats(){
+                    tick_repeats();
                 }
                 Window(const Window&) = delete;
                 Window& operator=(const Window&) = delete;

@@ -537,16 +537,16 @@ namespace pygame{
         void linerect(Line in,float thickness,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shader=single_color_shader){
             float vtx[8uz] = {
                 -0.5f,0.0f,
-                 0.5f,0.0f,
                 -0.5f,1.0f,
+                 0.5f,0.0f,
                  0.5f,1.0f
             };
             Point din{in};
             shader.uv2("position",in.a);
             shader.u2f("imgdims",thickness,in.length());
-            shader.u2f("rotation_center",0.0f,1.0f);
+            shader.u2f("rotation_center",0.0f,0.0f);
             shader.u1f("size",1.0f);
-            shader.u1f("rotation",std::atan2(din.y,din.x)+glm::half_pi<float>());
+            shader.u1f("rotation",std::atan2(din.y,din.x)-glm::half_pi<float>());
             shader.uv4("color",color);
             invoke_shader(vtx,8u,4u,shader);
             shader.u2f("rotation_center",0.5f,0.5f);

@@ -36,6 +36,7 @@ int main(){
         tt = "CJK Test: 中日韩 Current FPS:";
         sprintf(carr,"%.5f",clk.get_fps());
         tt += carr;
+        draw::linerect({SCRCNTR,win.mouse_pos()},12.0f);
         draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),align::CENTER,v_align::CENTER);
         win.swap_buffers();
         clk.measure();
