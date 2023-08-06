@@ -23,4 +23,8 @@
 #include<GLFW/glfw3.h>
 #include<glm/glm.hpp>
 #include"stb_image.h"
+
+namespace pygame{
+    using namespace cppp::strconcat;
+}
 #endif

@@ -5,11 +5,11 @@ namespace pygame{
     using Kernal = glm::mat3;
     Shader krnl;
     void ppInit(){
-        krnl.program = loadprogram("rsrc/2d_textured_vertex.glsl","rsrc/kernalfs.glsl");
+        krnl.program = loadprogram(u8"rsrc/2d_textured_vertex.glsl"sv,u8"rsrc/kernalfs.glsl"sv);
     }
     void ppApply(const zTexture& src, const Framebuffer& dst, Shader& shd=texture_shader, float sz=1.0f){
         dst.bind();
-        blit(src,{0.0f,0.0f},sz,0.0f,shd,false);
+        blit(src,{0.0f,0.0f},sz,0.0f,{0.0f,0.0f,1.0f,1.0f},shd,false);
     }
     Kernal edgeDet{
         1,1,1,
@@ -56,14 +56,14 @@ namespace pygame{
                 fb.bind();
                 tmp.bind();
                 Framebuffer::unbind();
-                fb.attachRenderbuf(GL_DEPTH_STENCIL_ATTACHMENT,dep);
-                fb.attachTexture(*_graphics);
-                tmp.attachTexture(*_tmphics);
-                if(!fb.isComplete()){
-                    throw std::runtime_error("GL internal error: framebuf not complete / Scene::Scene");
+                fb.attach_renderbuffer(GL_DEPTH_STENCIL_ATTACHMENT,dep);
+                fb.attach_texture(*_graphics);
+                tmp.attach_texture(*_tmphics);
+                if(!fb.is_complete()){
+                    throw cppp::u8_runtime_error(u8"GL internal error: framebuf not complete / Scene::Scene"sv);
                 }
-                if(!tmp.isComplete()){
-                    throw std::runtime_error("GL internal error: tmpbuf not complete / Scene::Scene");
+                if(!tmp.is_complete()){
+                    throw cppp::u8_runtime_error(u8"GL internal error: tmpbuf not complete / Scene::Scene"sv);
                 }
             }
             void bind(bool threed=false) const{
@@ -90,10 +90,14 @@ namespace pygame{
             }
             void draw(Point pos={0.0f, 0.0f},GLsizei dw=0, GLsizei dh=0) const{
                 glDisable(GL_DEPTH_TEST);
-                if(dw!=0&&dh!=0)glViewport(0,0,dw,dh);
                 Framebuffer::unbind();
+                if(dw!=0&&dh!=0){
+                    glViewport(0,0,dw,dh);
+                }else if(display::glCtx){
+                    display::glCtx->restore_viewport();
+                }
                 glClear(GL_COLOR_BUFFER_BIT);
-                blit(tmphics,pos,sz,0.0f,texture_shader,false);
+                blit(tmphics,pos,sz,0.0f,{0.0f,0.0f,1.0f,1.0f},texture_shader,false);
             }
             Scene(const Scene&) = delete;
     };

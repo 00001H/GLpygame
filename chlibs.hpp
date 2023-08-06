@@ -8,11 +8,11 @@ namespace pygame{
         #include FT_FREETYPE_H
     }
     using FT_Int32 = _ft::FT_Int32;
-    class FTError : public std::logic_error{
-        using std::logic_error::logic_error;
+    class FTError : public cppp::u8_logic_error{
+        using cppp::u8_logic_error::u8_logic_error;
     };
-    class FTRuntimeError : public std::logic_error{
-        using std::logic_error::logic_error;
+    class FTRuntimeError : public cppp::u8_runtime_error{
+        using cppp::u8_runtime_error::u8_runtime_error;
     };
     struct Ch_Texture{
         sTexture tex;
@@ -43,8 +43,8 @@ namespace pygame{
                 }
                 int x;
                 if((x = _ft::FT_Load_Char(face,ch,FT_LOAD_RENDER))){
-                    std::cerr << "Loadchar failed: (U+" << std::hex << +ch << std::dec << ") " << x << std::endl;
-                    throw FTError("Unable to load chararcter.");
+                    cppp::fcerr << u8"Loadchar failed: (U+"sv << std::hex << +ch << std::dec << u8") "sv << x << std::endl;
+                    throw FTError(u8"Unable to load chararcter."sv);
                 }
                 auto glyf = face->glyph;
                 auto bmap = glyf->bitmap;
@@ -104,18 +104,18 @@ namespace pygame{
             }
     };
     class Chlib{
-        mutable std::unordered_map<std::string, Font> fonts;
+        mutable std::unordered_map<std::u8string, Font> fonts;
         mutable size_t _font_id=0;
         mutable _ft::FT_Library ftlib;
-        Font& _getfont(std::string name,const char *orfile=nullptr) const{
+        Font& _getfont(std::u8string name,std::optional<std::u8string> orfile=std::nullopt) const{
             if(fonts.contains(name)){
                 return fonts.at(name);
-            }else if(orfile==nullptr){
-                throw FTError("Requested for unknown font without file!");
+            }else if(!orfile){
+                throw FTError(u8"Requested for unknown font without file!"sv);
             }else{
                 _ft::FT_Face face;
-                if(_ft::FT_New_Face(ftlib,orfile,0,&face)){
-                    throw FTRuntimeError("Cannot load face!");
+                if(_ft::FT_New_Face(ftlib,cppp::copy_as_plain(orfile.value()).c_str(),0,&face)){
+                    throw FTRuntimeError(u8"Cannot load face!"sv);
                 }
                 Font font(_font_id++,face);
                 fonts.emplace(name,std::move(font));
@@ -125,13 +125,13 @@ namespace pygame{
         public:
             Chlib(){
                 if(_ft::FT_Init_FreeType(&ftlib)){
-                    throw FTError("FreeType initialization failed!");
+                    throw FTError(u8"FreeType initialization failed!"sv);
                 }
             }
-            Font& loadfont(std::string name,std::string filepat){
-                return _getfont(name,filepat.c_str());
+            Font& loadfont(const std::u8string& name,const std::u8string& filepat){
+                return _getfont(name,filepat);
             }
-            Font& getfont(std::string name) const{
+            Font& getfont(const std::u8string& name) const{
                 return _getfont(name);
             }
     };

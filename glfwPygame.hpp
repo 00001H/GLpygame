@@ -4,13 +4,13 @@
 #include"gsdl.hpp"
 namespace pygame{
     namespace{
-        bool __is_init=false;
+        bool _is_init=false;
     }
     void drawInit();
     void glVer(int mjr,int mnr,bool core=true){
     #ifndef GLPY_NOWARN_GLVER
         if(mjr<4||(mjr==4&&mnr<=5)){
-            std::cerr << "Warning: Using OpenGL<=4.5. Please enable the required OpenGL extensions(DSA and bindless textures) or this library won't work properly. Use #define GLPY_NOWARN_GLVER to supress." << std::endl;
+            cppp::fcerr << u8"Warning: Using OpenGL<=4.5. Please enable the required OpenGL extensions(DSA and bindless textures) or this library won't work properly. Use #define GLPY_NOWARN_GLVER to supress."sv << std::endl;
         }
     #endif
         glfwWindowHint(GLFW_CLIENT_API,GLFW_OPENGL_API);
@@ -34,8 +34,8 @@ namespace pygame{
             private:
                 std::vector<Event> eventlist;
             public:
-                void add(Event event){
-                    eventlist.push_back(event);
+                void ignore(){
+                    eventlist.clear();
                 }
                 std::vector<Event> get(){
                     std::vector<Event> retval{std::move(eventlist)};
@@ -59,28 +59,27 @@ namespace pygame{
             bool is_key(int key,uint32_t _orscan=-1u) const{return (((key==GLFW_KEY_UNKNOWN)||(glfw_key==GLFW_KEY_UNKNOWN))?(scancode==_orscan):(key==glfw_key));}
         };
         struct TextEvent{
-            char32_t ch;
-            TextEvent(char32_t c) : ch(c){}
-            TextEvent(uint_least32_t c) : ch(char32_t(c)){}
-            void apply(std::string& s){
-                if(ch=='\b'){
-                    if(!s.empty())s.pop_back();
-                }else{
-                    s += ch;
-                }
+            cppp::codepoint ch;
+            TextEvent(cppp::codepoint c) : ch(c){}
+            void apply(std::u8string& s) const{
+                cppp::appendCodepointToString(ch,s);
             }
         };
     }
     namespace display{
         class Window;
-        void default_resize_fun(Window&,int wi,int ht){
-            glViewport(0,0,wi,ht);
+        Window* glCtx=nullptr;
+        void aspected_viewport(int winwi,int winht,float aspect){
+            float wwwi = std::min(float(winwi),float(winht)*aspect);
+            float wcwh = wwwi/aspect;
+            float wpad = (float(winwi)-wwwi)/2.0f;
+            float hpad = (float(winht)-wcwh)/2.0f;
+            glViewport(int(wpad),int(hpad),int(wwwi),int(wcwh));
         }
-        class window_creation_failed : public std::logic_error{
-            using std::logic_error::logic_error;
+        class window_creation_failed : public cppp::u8_logic_error{
+            using cppp::u8_logic_error::u8_logic_error;
         };
         std::unordered_map<GLFWwindow*,Window*> winmaps;
-        Window* glCtx=nullptr;
         class Window{
             int repeatedKey=0;
             int repeatedScan=0;
@@ -89,49 +88,50 @@ namespace pygame{
             bool repeating=false;
             size_t repeatBegin=47u;
             size_t repeatExec=12u;
-            private:
-                static Point toPygameCoords(glm::dvec2 in,double sw,double sh){
-                    return {(float)(in.x/sw*1920.0),(float)(in.y/sh*1080.0)};
+            static Point toPygameCoords(glm::dvec2 in,double sw,double sh){
+                return {(float)(in.x/sw*1920.0),(float)(in.y/sh*1080.0)};
+            }
+            static Point getMousePos(GLFWwindow *win){
+                double x,y;
+                glfwGetCursorPos(win,&x,&y);
+                Window *self = winmaps.at(win);
+                return toPygameCoords(vec2{x,y},self->sw,self->sh);
+            }
+            static void _handle_mmotion(GLFWwindow* win,double x,double y){
+                Window *self = winmaps.at(win);
+                self->eventqueue.put(event::Event(event::MOUSEMOTION,toPygameCoords(vec2{x,y},self->sw,self->sh)));
+            }
+            static void _handle_mbutton(GLFWwindow* win,int btn,int action,int){
+                winmaps.at(win)->eventqueue.put(event::Event(((action==GLFW_PRESS) ? event::MOUSEBUTTONDOWN : event::MOUSEBUTTONUP),event::MouseButtonEvent(getMousePos(win),btn)));
+            }
+            static void _handle_kpress(GLFWwindow* win,int key,int scan,int action,int mods){
+                if(action==GLFW_REPEAT)return;//Ignore system repeats
+                winmaps.at(win)->eventqueue.put(event::Event(((action==GLFW_PRESS) ? event::KEYDOWN : event::KEYUP),event::KeyEvent(key,scan,mods)));
+                if(action==GLFW_PRESS){
+                    winmaps.at(win)->repeatedKey = key;
+                    winmaps.at(win)->repeatedScan = scan;
+                    winmaps.at(win)->repeatedMods = mods;
+                    winmaps.at(win)->effectiveRepeatedFrames = 0u;
+                    winmaps.at(win)->repeating = true;
+                }else if(key==winmaps.at(win)->repeatedKey){
+                    winmaps.at(win)->repeating = false;
                 }
-                static Point getMousePos(GLFWwindow *win){
-                    double x,y;
-                    glfwGetCursorPos(win,&x,&y);
-                    Window *self = winmaps[win];
-                    return toPygameCoords(vec2{x,y},self->sw,self->sh);
-                }
-                static void _Handle_MouseMotion(GLFWwindow* win,double x,double y){
-                    Window *self = winmaps[win];
-                    self->eventqueue.put(event::Event(event::MOUSEMOTION,toPygameCoords(vec2{x,y},self->sw,self->sh)));
-                }
-                static void _Handle_MouseButton(GLFWwindow* win,int btn,int action,int){
-                    winmaps[win]->eventqueue.put(event::Event(((action==GLFW_PRESS) ? event::MOUSEBUTTONDOWN : event::MOUSEBUTTONUP),event::MouseButtonEvent(getMousePos(win),btn)));
-                }
-                static void _Handle_KeyPress(GLFWwindow* win,int key,int scan,int action,int mods){
-                    if(action==GLFW_REPEAT)return;//Ignore system repeats
-                    winmaps[win]->eventqueue.put(event::Event(((action==GLFW_PRESS) ? event::KEYDOWN : event::KEYUP),event::KeyEvent(key,scan,mods)));
-                    if(action==GLFW_PRESS){
-                        winmaps[win]->repeatedKey = key;
-                        winmaps[win]->repeatedScan = scan;
-                        winmaps[win]->repeatedMods = mods;
-                        winmaps[win]->effectiveRepeatedFrames = 0u;
-                        winmaps[win]->repeating = true;
-                    }else if(key==winmaps[win]->repeatedKey){
-                        winmaps[win]->repeating = false;
-                    }
-                }
-                static void _Handle_Text(GLFWwindow* win, uint_least32_t ch){
-                    winmaps[win]->eventqueue.put(event::Event(event::TEXT,event::TextEvent(ch)));
-                }
-                static void _Handle_FBResize(GLFWwindow* win,int wd,int ht){
-                    winmaps[win]->tellResize(wd,ht);
-                }
-                GLFWwindow* win = nullptr;
-                GLFWmonitor* fullscreen_monitor = nullptr;
-                GLFWmonitor* current_monitor = nullptr;
-                int fullscreen_fps = 0;
-                GLsizei sw,sh;
-                std::function<void(Window&,int,int)> fbcbf;
-                mutable bool closed=false;
+            }
+            static void _handle_text(GLFWwindow* win, uint_least32_t ch){
+                winmaps.at(win)->eventqueue.put(event::Event(event::TEXT,event::TextEvent(ch)));
+            }
+            static void _handle_resize(GLFWwindow* win,int wd,int ht){
+                winmaps.at(win)->tellResize(wd,ht);
+            }
+            GLFWwindow* win;
+            std::function<void(Window&)> fbcbf;
+            GLFWmonitor* fullscreen_monitor;
+            GLFWmonitor* current_monitor;
+            uint32_t fullscreen_fps = 0;
+            GLsizei sw;
+            GLsizei sh;
+            mutable bool closed=false;
+            float aspect;
             public:
                 void configureRepeat(size_t bgn,size_t dly){
                     repeatBegin = bgn;
@@ -154,22 +154,21 @@ namespace pygame{
                 }
                 Window(const Window&) = delete;
                 Window& operator=(const Window&) = delete;
-                Window(GLsizei width,GLsizei height,const char *title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL){
-                    win = glfwCreateWindow(width,height,title,monitor,share);
+                Window(GLsizei width,GLsizei height,const std::u8string_view& title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
+                win(glfwCreateWindow(width,height,cppp::copy_as_plain(title).c_str(),monitor,share)),
+                fbcbf([](Window&){}),
+                fullscreen_monitor((monitor==nullptr)?glfwGetPrimaryMonitor():monitor),
+                current_monitor(monitor), fullscreen_fps(60), sw(width), sh(height),
+                aspect(float(width)/float(height)){
                     if(win==NULL){
-                        throw window_creation_failed("Window creation failed!");
+                        throw window_creation_failed(u8"Window creation failed!"sv);
                     }
-                    fbcbf = [](Window&,int,int){};
-                    winmaps.insert_or_assign(win,this);
-                    glfwSetCursorPosCallback(win,_Handle_MouseMotion);
-                    glfwSetMouseButtonCallback(win,_Handle_MouseButton);
-                    glfwSetKeyCallback(win,_Handle_KeyPress);
-                    glfwSetFramebufferSizeCallback(win,_Handle_FBResize);
-                    glfwSetCharCallback(win,_Handle_Text);
-                    sw = width;
-                    sh = height;
-                    current_monitor = monitor;
-                    fullscreen_monitor = ((monitor==nullptr)?glfwGetPrimaryMonitor():monitor);
+                    winmaps.try_emplace(win,this);
+                    glfwSetCursorPosCallback(win,_handle_mmotion);
+                    glfwSetMouseButtonCallback(win,_handle_mbutton);
+                    glfwSetKeyCallback(win,_handle_kpress);
+                    glfwSetFramebufferSizeCallback(win,_handle_resize);
+                    glfwSetCharCallback(win,_handle_text);
                 }
                 bool isWindowed() const{
                     return current_monitor==nullptr;
@@ -230,7 +229,10 @@ namespace pygame{
                 [[deprecated("Use snake_case instead")]] GLsizei getHeight() const{
                     return height();
                 }
-                void onresize(std::function<void(Window&,GLsizei,GLsizei)> func){
+                void restore_viewport() const{
+                    aspected_viewport(sw,sh,aspect);
+                }
+                void onresize(std::function<void(Window&)> func){
                     fbcbf = func;
                 }
                 void swap_buffers() const{
@@ -256,7 +258,7 @@ namespace pygame{
                     return get_mouse_button(btn);
                 }
                 ~Window(){
-                    if(__is_init){
+                    if(_is_init){
                         close();
                     }
                     if(glCtx==this){
@@ -265,19 +267,22 @@ namespace pygame{
                 }
             private:
                 void tellResize(int wd,int ht){
-                    sw = double(wd);
-                    sh = double(ht);
-                    fbcbf(*this,wd,ht);
+                    sw = wd;
+                    sh = ht;
+                    fbcbf(*this);
                 }
         };
+        void default_resize_fun(Window& w){
+            w.restore_viewport();
+        }
         void init(){
-            if(__is_init)return;
+            if(_is_init)return;
             glfwInit();
-            __is_init = true;
+            _is_init = true;
         }
         void quit(){
-            if(!__is_init)return;
-            __is_init = false;
+            if(!_is_init)return;
+            _is_init = false;
             glfwTerminate();
         }
         typedef std::shared_ptr<Window> pWindow;

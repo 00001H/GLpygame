@@ -2,7 +2,7 @@
 #include<pygame.hpp>
 #include<utility>
 #include<cstdio>
-using std::string;
+using std::u8string;
 using std::vector;
 using std::any_cast;
 using namespace pygame;
@@ -44,19 +44,19 @@ float inline constexpr modudist(float x,float y,float mod){
 static_assert(modudist(0,10,11)==1);
 
 #define GL_DEBUG_CONTEXT false
-std::string surr(bool apply, std::string inside){
-    if(apply)return "["+inside+"]";
-    return " "+inside+" ";
+std::u8string surr(bool apply, std::u8string inside){
+    if(apply)return u8'['+inside+u8']';
+    return u8' '+inside+u8' ';
 }
 template<typename T>
-std::string subst(const std::string& st,const std::initializer_list<T>& il){
+std::u8string subst(const std::u8string_view& st,const std::initializer_list<T>& il){
     auto s = il.begin();
     auto e = il.end();
-    std::string out;
-    for(const char& c : st){
+    std::u8string out;
+    for(const char8_t& c : st){
         if(c=='$'){
             if(s==e){
-                throw std::logic_error("Not enough arguments to subst!");
+                throw cppp::u8_logic_error(u8"Not enough arguments to subst!"sv);
             }
             out += cppp::str<T>(*(s++));
         }else{
@@ -65,11 +65,11 @@ std::string subst(const std::string& st,const std::initializer_list<T>& il){
     }
     return out;
 }
-std::string seltex(int i){
-    std::string a = surr(i==0,"$");
-    std::string b = surr(i==1,"$");
-    std::string c = surr(i==2,"$");
-    return subst("|$ $ $|",{a,b,c});
+std::u8string seltex(int i){
+    std::u8string a = surr(i==0,u8"$"s);
+    std::u8string b = surr(i==1,u8"$"s);
+    std::u8string c = surr(i==2,u8"$"s);
+    return subst(u8"|$ $ $|"sv,{a,b,c});
 }
 int main(){
     pygame::init();
@@ -86,7 +86,7 @@ int main(){
     pygame::glVer(4,6);
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_DEBUG_CONTEXT);
-    Window win{1600,900,"3D Test"};
+    Window win{1600,900,u8"3D Test"sv};
     win.set_as_OpenGL_target();
     pygame::setupTemplate0();
     #if GL_DEBUG_CONTEXT
@@ -95,13 +95,13 @@ int main(){
     glDebugMessageCallback(glDebugOutput, nullptr);
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
     #endif
-    Font& DEFAULT_FONT = charlib.loadfont("Cnew","rsrc/courier_new.ttf");
+    Font& DEFAULT_FONT = charlib.loadfont(u8"Cnew"s,u8"rsrc/courier_new.ttf"s);
     DEFAULT_FONT.set_dimensions(0,45);
-    sTexture fteximg{loadTexture2D("demorsrc/checkers.png")};
-    sTexture tex{loadTexture2D("demorsrc/a.png")};
-    sTexture tex2{loadTexture2D("demorsrc/b.png")};
-    sTexture tex3{loadTexture2D("demorsrc/c.png")};
-    sTexture pp{loadTexture2D("demorsrc/p.png")};
+    sTexture fteximg{loadTexture2D(u8"demorsrc/checkers.png"s)};
+    sTexture tex{loadTexture2D(u8"demorsrc/a.png"s)};
+    sTexture tex2{loadTexture2D(u8"demorsrc/b.png"s)};
+    sTexture tex3{loadTexture2D(u8"demorsrc/c.png"s)};
+    sTexture pp{loadTexture2D(u8"demorsrc/p.png"s)};
     CubeTexture ctex{*tex};
     CubeTexture ptex{*pp};
     ctex.left = *tex2;
@@ -131,7 +131,7 @@ int main(){
     float player_yaccel=0.0f;
     float mind = 0.0f;
     Scene scene{1920,1080};
-    std::string kr0,kr1,kr2;
+    std::u8string kr0,kr1,kr2;
     std::array<int,12> krlis;
     krlis.fill(0);
     krlis[4] = 8;
@@ -264,10 +264,10 @@ int main(){
             scene.applyKernel(pygame::Kernal{krlis[0],krlis[1],krlis[2],krlis[3],krlis[4],krlis[5],krlis[9],krlis[10],krlis[11]}/float(krlis[7]),float(krlis[6])/1000.0f);
         }
         scene.draw({0.0f,0.0f},win.width(),win.height());
-        pygame::draw_text(DEFAULT_FONT,"GLpygame 3D demo(ver.0226rc1) all pasterights reserved",{10.0f,10.0f});
+        pygame::draw_text(DEFAULT_FONT,u8"GLpygame 3D demo(ver.0226rc1) all pasterights reserved"sv,{10.0f,10.0f});
         pygame::draw_text(DEFAULT_FONT,dumppos(cam_pos),{10.0f,50.0f});
         kr0 = subst(seltex(mmsel),{krlis[0],krlis[1],krlis[2]});
-        kr1 = subst(seltex(mmsel-3),{krlis[3],krlis[4],krlis[5]})+"/"+surr(mmsel==6,std::to_string(krlis[6]))+surr(mmsel==7,std::to_string(krlis[7]))+" ^ "+surr(mmsel==8,std::to_string(krlis[8]));
+        kr1 = subst(seltex(mmsel-3),{krlis[3],krlis[4],krlis[5]})+u8'/'+surr(mmsel==6,cppp::to_u8string(krlis[6]))+surr(mmsel==7,cppp::to_u8string(krlis[7]))+u8' '+surr(mmsel==8,cppp::to_u8string(krlis[8]));
         kr2 = subst(seltex(mmsel-9),{krlis[9],krlis[10],krlis[11]});
         pygame::draw_text(DEFAULT_FONT,kr0,{30.0f,125.0f});
         pygame::draw_text(DEFAULT_FONT,kr1,{30.0f,175.0f});
@@ -279,42 +279,42 @@ int main(){
     pygame::quit();
     return 0;
 }
-void APIENTRY glDebugOutput(GLenum source,GLenum type,uint32_t id,GLenum severity, GLsizei length,const char *message,const void *userParam){
+void APIENTRY glDebugOutput(GLenum source,GLenum type,uint32_t id,GLenum severity, GLsizei,const char* message,const void*){
     // ignore non-significant error/warning codes
     if(id == 131169 || id == 131185 || id == 131218 || id == 131204) return; 
 
-    std::cout << "---------------" << std::endl;
-    std::cout << "Debug message (" << id << "): " <<  message << std::endl;
+    cppp::fcout << u8"---------------"sv << std::endl;
+    cppp::fcout << u8"Debug message ("sv << id << u8"): "sv <<  message << std::endl;
 
     switch (source)
     {
-        case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
-        case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
-        case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
-        case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
-        case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
+        case GL_DEBUG_SOURCE_API:             cppp::fcout << u8"Source: API"sv; break;
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   cppp::fcout << u8"Source: Window System"sv; break;
+        case GL_DEBUG_SOURCE_SHADER_COMPILER: cppp::fcout << u8"Source: Shader Compiler"sv; break;
+        case GL_DEBUG_SOURCE_THIRD_PARTY:     cppp::fcout << u8"Source: Third Party"sv; break;
+        case GL_DEBUG_SOURCE_APPLICATION:     cppp::fcout << u8"Source: Application"sv; break;
+        case GL_DEBUG_SOURCE_OTHER:           cppp::fcout << u8"Source: Other"sv; break;
     }
     std::endl(std::cout);
 
     switch (type){
-        case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
-        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break; 
-        case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
-        case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
-        case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
-        case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
-        case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
-        case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
+        case GL_DEBUG_TYPE_ERROR:               cppp::fcout << u8"Type: Error"sv; break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: cppp::fcout << u8"Type: Deprecated Behaviour"sv; break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  cppp::fcout << u8"Type: Undefined Behaviour"sv; break; 
+        case GL_DEBUG_TYPE_PORTABILITY:         cppp::fcout << u8"Type: Portability"sv; break;
+        case GL_DEBUG_TYPE_PERFORMANCE:         cppp::fcout << u8"Type: Performance"sv; break;
+        case GL_DEBUG_TYPE_MARKER:              cppp::fcout << u8"Type: Marker"sv; break;
+        case GL_DEBUG_TYPE_PUSH_GROUP:          cppp::fcout << u8"Type: Push Group"sv; break;
+        case GL_DEBUG_TYPE_POP_GROUP:           cppp::fcout << u8"Type: Pop Group"sv; break;
+        case GL_DEBUG_TYPE_OTHER:               cppp::fcout << u8"Type: Other"sv; break;
     }
     std::endl(std::cout);
     
     switch (severity){
-        case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
-        case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
-        case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
-        case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+        case GL_DEBUG_SEVERITY_HIGH:         cppp::fcout << u8"Severity: high"sv; break;
+        case GL_DEBUG_SEVERITY_MEDIUM:       cppp::fcout << u8"Severity: medium"sv; break;
+        case GL_DEBUG_SEVERITY_LOW:          cppp::fcout << u8"Severity: low"sv; break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION: cppp::fcout << u8"Severity: notification"sv; break;
     }
     std::endl(std::endl(std::cout));
 }

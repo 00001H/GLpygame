@@ -2,8 +2,10 @@
 #define GLPYGAME_TEXTURE_HPP
 #include<glad/glad.h>
 #include<glm/glm.hpp>
+#include<cppp.hpp>
 #include<memory>
 namespace pygame{
+    using namespace std::literals;
     class Texture{
         protected:
             bool resident;
@@ -103,10 +105,10 @@ namespace pygame{
             }
             auto handle() const{
                 if(!resident){
-                    throw std::logic_error("Trying to access a non-resident handle!");
+                    throw cppp::u8_logic_error(u8"Trying to access a non-resident handle!"sv);
                 }
                 if(placeholder){
-                    throw std::logic_error("Trying to use a null texture!");
+                    throw cppp::u8_logic_error(u8"Trying to use a null texture!"sv);
                 }
                 return texturehandle;
             }

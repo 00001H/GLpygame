@@ -3,14 +3,8 @@
 #include"include.hpp"
 namespace pygame{
     #define inherits : public
-    class error inherits std::exception{
-        protected:
-            std::string wht;
-        public:
-            error(std::string st) : wht(st){}
-            const char* what() const noexcept{
-                return wht.c_str();
-            }
+    class error inherits cppp::u8_logic_error{
+        using cppp::u8_logic_error::u8_logic_error;
     };
     class shader_error inherits error{
         using error::error;

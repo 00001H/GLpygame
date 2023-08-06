@@ -50,7 +50,7 @@ namespace pygame{
     //WARNING: Requires glClearColor to be set!
     void draw_made_with_glpy(display::Window& win,float insecs=1.625,float staysecs=0.875,float outsecs=1.625){
         const float FPS=60.00;
-        sTexture _tex{loadTexture2D("rsrc/glpy.png")};
+        sTexture _tex{loadTexture2D(u8"rsrc/glpy.png"s)};
         zTexture tex{*_tex};
         #define sec2frm(sec) (glm::round((sec)*FPS))
         float inframes = sec2frm(insecs);
@@ -84,8 +84,8 @@ namespace pygame{
             frame++;
         }
     }
-    std::string dumppos(const glm::vec3& pos){
-        return "("+std::to_string(pos.x)+","+std::to_string(pos.y)+","+std::to_string(pos.z)+")";
+    std::u8string dumppos(const glm::vec3& pos){
+        return u8'('+cppp::to_u8string(pos.x)+u8','+cppp::to_u8string(pos.y)+u8','+cppp::to_u8string(pos.z)+u8')';
     }
 }
 #endif//PYGAME_HPP

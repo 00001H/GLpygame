@@ -68,15 +68,15 @@ namespace pygame{
             left(face),right(face){}
     };
 #endif
-    sTexture loadTexture2D(const char* filename){
+    sTexture loadTexture2D(std::u8string filename){
         int w,h,color_chnls;
-        unsigned char *data = stbi_load(filename,&w,&h,&color_chnls,0);
+        unsigned char *data = stbi_load(cppp::copy_as_plain(filename).c_str(),&w,&h,&color_chnls,0);
         if(data==nullptr){
-            throw pygame::error(std::string("Unable to load texture: ")+filename);
+            throw pygame::error(u8"Unable to load texture: "s+filename);
         }
         sTexture v{new Texture(data,w,h,(color_chnls==3)?GL_RGB:GL_RGBA,GL_RGBA)};
         if(!v){
-            throw pygame::error(std::string("Unable to create texture: ")+filename);
+            throw pygame::error(u8"Unable to create texture: "s+filename);
         }
         stbi_image_free(data);
         return v;
@@ -104,7 +104,7 @@ namespace pygame{
             int colorattach=0;
             mutable bool once_bound=false;
             void error_unbound() const{
-                throw pygame::error("New framebuffers needs to be bound at least once before it is valid!");
+                throw pygame::error(u8"New framebuffers needs to be bound at least once before it is valid!"sv);
             }
         public:
             Framebuffer(){
@@ -114,37 +114,49 @@ namespace pygame{
             ~Framebuffer(){
                 glDeleteFramebuffers(1,&fbo);
             }
-            auto getId() const{
+            auto id() const{
                 return fbo;
             }
-            bool isComplete(GLenum forMode=GL_FRAMEBUFFER) const{
+            [[deprecated("Use snake_case instead")]] auto getId() const{
+                return id();
+            }
+            bool is_complete(GLenum forMode=GL_FRAMEBUFFER) const{
                 return glCheckNamedFramebufferStatus(fbo,forMode)==GL_FRAMEBUFFER_COMPLETE;
+            }
+            [[deprecated("Use snake_case instead")]] bool isComplete(GLenum forMode=GL_FRAMEBUFFER) const{
+                return is_complete(forMode);
             }
             void bind(GLenum target=GL_FRAMEBUFFER) const{
                 glBindFramebuffer(target,fbo);
                 once_bound = true;
             }
-            void attachRenderbuf(GLenum target,Renderbuffer &rbuf){
+            void attach_renderbuffer(GLenum target,Renderbuffer &rbuf){
                 if(!once_bound)error_unbound();
                 glNamedFramebufferRenderbuffer(fbo,target,GL_RENDERBUFFER,rbuf.getId());
             }
-            void attachTexture(const Texture& texture){
+            [[deprecated("Use snake_case instead")]] void attachRenderbuf(GLenum target,Renderbuffer &rbuf){
+                attach_renderbuffer(target,rbuf);
+            }
+            void attach_texture(const Texture& texture){
                 if(!once_bound)error_unbound();
                 int attachment_point = GL_COLOR_ATTACHMENT0+(colorattach++);
                 if(colorattach>GL_MAX_COLOR_ATTACHMENTS){
-                    throw pygame::error("Too many color attachments for framebuffer "+std::to_string(fbo)+" !");
+                    throw pygame::error(u8"Too many color attachments for framebuffer "s+cppp::to_u8string(fbo)+u8'!');
                 }
                 glNamedFramebufferTexture(fbo,attachment_point,texture.id(),0);
+            }
+            [[deprecated("Use snake_case instead")]] void attachTexture(const Texture& texture){
+                attach_texture(texture);
             }
             static void unbind(GLenum target=GL_FRAMEBUFFER){
                 glBindFramebuffer(target,0);
             }
     };
-    GLuint loadprogram(const char*vs,const char*fs){
+    GLuint loadprogram(const std::u8string_view& vs,const std::u8string_view& fs){
         using namespace std;
         GLint compiled;
-        std::string vsrcutf16 = loadStringFile(vs);
-        std::string vtxsrc(vsrcutf16.begin(),vsrcutf16.end());
+        std::u8string vsrc{loadStringFile(vs)};
+        std::string vtxsrc{cppp::copy_as_plain(vsrc)};
         const char *vtxsrc_cstr = vtxsrc.c_str();
         GLuint vshad = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vshad,1,&vtxsrc_cstr,NULL);
@@ -153,14 +165,14 @@ namespace pygame{
         if(!compiled){
             GLint ln;
             glGetShaderiv(vshad,GL_INFO_LOG_LENGTH,&ln);
-            char infolog[ln];
-            glGetShaderInfoLog(vshad,ln,nullptr,infolog);
-            throw vshad_compilation_failed(infolog);
+            std::string infolog(ln,'\0');
+            glGetShaderInfoLog(vshad,ln,nullptr,infolog.data());
+            throw vshad_compilation_failed(cppp::copy_as_u8(infolog));
         }
 
-        std::string fsrcutf16 = loadStringFile(fs);
-        std::string frgsrc(fsrcutf16.begin(),fsrcutf16.end());
-        const char *frgsrc_cstr = frgsrc.c_str();
+        std::u8string fsrc{loadStringFile(fs)};
+        std::string frgsrc{cppp::copy_as_plain(fsrc)};
+        const char* frgsrc_cstr = frgsrc.c_str();
         GLuint fshad = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fshad,1,&frgsrc_cstr,NULL);
         glCompileShader(fshad);
@@ -168,9 +180,9 @@ namespace pygame{
         if(!compiled){
             GLint ln;
             glGetShaderiv(fshad,GL_INFO_LOG_LENGTH,&ln);
-            char infolog[ln];
-            glGetShaderInfoLog(fshad,ln,nullptr,infolog);
-            throw fshad_compilation_failed(infolog);
+            std::string infolog(ln,'\0');
+            glGetShaderInfoLog(fshad,ln,nullptr,infolog.data());
+            throw fshad_compilation_failed(cppp::copy_as_u8(infolog));
         }
 
         GLuint program = glCreateProgram();
@@ -183,9 +195,9 @@ namespace pygame{
         if(!linked){
             GLint ln;
             glGetShaderiv(fshad,GL_INFO_LOG_LENGTH,&ln);
-            char infolog[ln];
-            glGetProgramInfoLog(program,ln,nullptr,infolog);
-            throw program_linking_failed(infolog);
+            std::string infolog(ln,'\0');
+            glGetProgramInfoLog(program,ln,nullptr,infolog.data());
+            throw program_linking_failed(cppp::copy_as_u8(infolog));
         }
         glDeleteShader(vshad);
         glDeleteShader(fshad);
@@ -227,6 +239,9 @@ namespace pygame{
         void um3(const char* var, glm::mat3 m3) const{
             glProgramUniformMatrix3fv(program,getLocation(var),1,GL_FALSE,glm::value_ptr(m3));
         }
+        void u4f(const char* var, GLfloat x, GLfloat y, GLfloat z, GLfloat w) const{
+            glProgramUniform4f(program,getLocation(var),x,y,z,w);
+        }
         void uv4(const char* var, glm::vec4 v4) const{
             glProgramUniform4fv(program,getLocation(var),1,glm::value_ptr(v4));
         }
@@ -253,13 +268,16 @@ namespace pygame{
         0.0f,0.0f,0.0f,0.0f,
         0.0f,1.0f,0.0f,1.0f,
         1.0f,1.0f,1.0f,1.0f,
-        1.0f,0.0f,1.0f,0.0
+        1.0f,0.0f,1.0f,0.0f
     };
     using namespace std::literals;
-    GLuint load_rsrc_program(std::string x,std::string y){
-        cppp::dirpath p=x,q=y;
-        cppp::dirpath rp="rsrc"s/p,rq="rsrc"s/q;
-        std::string pstr=rp.string(),qstr=rq.string();
+    GLuint load_rsrc_program(const std::u8string_view& x,const std::u8string_view& y){
+        cppp::dirpath p = x;
+        cppp::dirpath q = y;
+        cppp::dirpath rp = "rsrc"s/p;
+        cppp::dirpath rq = "rsrc"s/q;
+        std::u8string pstr = rp.u8string();
+        std::u8string qstr = rq.u8string();
         return loadprogram(pstr.c_str(),qstr.c_str());
     }
     #ifndef GLPY_PLOQE
@@ -267,15 +285,15 @@ namespace pygame{
     #endif
     void gllInit(){
         if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
-            throw error("GLAD load failed! Did your forget to bind an OpenGL context?");
+            throw error(u8"GLAD load failed! Did your forget to bind an OpenGL context?"sv);
         }
-        text_shader.program = GLPY_PLOAD("2d_textured_vertex.glsl","text_rendering_fragment.glsl");
-        texture_shader.program = GLPY_PLOAD("2d_textured_vertex.glsl","texture_sampling_fragment.glsl");
-        fill_shader.program = GLPY_PLOAD("2d_colored_vertex.glsl","fill_fragment.glsl");
-        single_color_shader.program = GLPY_PLOAD("2d_vertex.glsl","single_color_fragment.glsl");
+        text_shader.program = GLPY_PLOAD(u8"2d_textured_vertex.glsl"sv,u8"text_rendering_fragment.glsl"sv);
+        texture_shader.program = GLPY_PLOAD(u8"2d_textured_vertex.glsl"sv,u8"texture_sampling_fragment.glsl"sv);
+        fill_shader.program = GLPY_PLOAD(u8"2d_colored_vertex.glsl"sv,u8"fill_fragment.glsl"sv);
+        single_color_shader.program = GLPY_PLOAD(u8"2d_vertex.glsl"sv,u8"single_color_fragment.glsl"sv);
         
 #ifndef PYGAME_NO3D
-        texture_3d_shader.program = GLPY_PLOAD("3d_textured_vertex.glsl","3d_textured_fragment.glsl");
+        texture_3d_shader.program = GLPY_PLOAD(u8"3d_textured_vertex.glsl"sv,u8"3d_textured_fragment.glsl"sv);
 #endif
 #undef GLPY_PLOAD
         glGenVertexArrays(1,&texture_vao);
@@ -341,7 +359,8 @@ namespace pygame{
         shdr.use();
         invoke_shader_nb(data,data_cnt,vert_cnt,drawmode);
     }
-    void blit(const zTexture& image,Point location,float size=1.0f,float rotation=0.0f,Shader& shader=texture_shader,bool flipv=true){
+    void blit(const zTexture& image,const Point& location,float size=1.0f,float rotation=0.0f,
+    const glm::vec4& rgn = {0.0f,0.0f,1.0f,1.0f},Shader& shader=texture_shader,bool flipv=true){
         float vtx[8] = {
             0.0f,1.0f,
             1.0f,1.0f,
@@ -350,12 +369,12 @@ namespace pygame{
         };
         glUseProgram(shader.program);
         shader.uimg("img",image.handle());
-        shader.u1f("size",size);
         shader.uv2("position",location);
-        shader.u2f("imgdims",image.width(),image.height());
+        shader.u2f("imgdims",image.width()*size,image.height()*size);
         shader.u1f("rotation",-rotation);
         shader.u1f("transparency",image.alpha());
         shader.u1f("brightness",image.brightness());
+        shader.uv4("region",rgn);
         shader.u1ui("flipv",flipv);
         invoke_shader(vtx,8,4,shader,GL_TRIANGLE_STRIP,texture_vao,texture_vbo);
         shader.u1ui("flipv",true);
@@ -366,7 +385,7 @@ namespace pygame{
     enum class v_align{
         TOP,BASELINE,CENTER,BOTTOM
     };
-    Rect get_text_rect(Font& font,const cppp::codepoints& cps,Point position,
+    Rect get_text_rect(Font& font,const cppp::codepoints& cps,const Point& position,
                    align algn=align::LEFT,v_align valgn=v_align::TOP,
         float* masc=nullptr,float* mdsc=nullptr){
         float textwidth=0.0f;
@@ -408,13 +427,13 @@ namespace pygame{
             *mdsc = mindescent;
         }
         return Rect(position.x+xdelta,position.y+ydelta,textwidth,textheight);
-    }Rect get_text_rect(Font& font,const std::string& text,Point position,
+    }Rect get_text_rect(Font& font,const std::u8string_view& text,const Point& position,
                    align algn=align::LEFT,v_align valgn=v_align::TOP){
         return get_text_rect(font,cppp::codepoints_of(text),position,algn,valgn);
     }
     
-    Rect draw_singleline_text(Font& font,const cppp::codepoints& cps,Point position,
-                   Color color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
+    Rect draw_singleline_text(Font& font,const cppp::codepoints& cps,const Point& position,
+                   const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
         char_tex ch=nullptr;
         float maxasc;
         float mindsc;
@@ -461,12 +480,12 @@ namespace pygame{
         }
         return tr;
     }
-    Rect draw_singleline_text(Font& font,const std::string text,Point position,
-                   Color color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
+    Rect draw_singleline_text(Font& font,const std::u8string_view& text,const Point& position,
+                   const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
         return draw_singleline_text(font,cppp::codepoints_of(text),position,color,algn,valgn);
     }
-    Rect draw_text(Font& font,const std::string& text,Point position,
-                   Color color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true){
+    Rect draw_text(Font& font,const std::u8string_view& text,const Point& position,
+                   const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true){
         using text_line = std::pair<cppp::codepoints,float>;
         std::vector<text_line> lines;
         float y = 0.0f;
@@ -502,14 +521,16 @@ namespace pygame{
         }else if(valgn==v_align::CENTER){
             ydelta -= bbox.h/2.0f;
         }else if(valgn==v_align::BASELINE){
-            throw pygame::error("Cannot render multiline with BASELINE align");
+            //NEW: Allow baseline alignment
+
+            // throw pygame::error(u8"Cannot render multiline with BASELINE align"sv);
         }else{
             assert(valgn==v_align::TOP);
         }
         bbox.y += ydelta;
         if(do_render){
             for(const text_line& ln : lines){
-                draw_singleline_text(font,ln.first,position+Point(0.0f,ln.second+ydelta),color,algn);
+                draw_singleline_text(font,ln.first,position+Point(0.0f,ln.second+ydelta),color,algn,valgn==v_align::BASELINE?valgn:v_align::TOP);
             }
         }
         return bbox;
@@ -647,11 +668,19 @@ namespace pygame{
     }//namespace time;
 }//namespace pygame;
 namespace std{
-    std::string to_string(pygame::Rect rct){
-        return (string)"pygame.Rect("+to_string(rct.x)+","+to_string(rct.y)+","+to_string(rct.w)+","+to_string(rct.h)+")";
+    string to_string(pygame::Rect rct){
+        return "pygame.Rect("s+to_string(rct.x)+','+to_string(rct.y)+','+to_string(rct.w)+','+to_string(rct.h)+')';
     }
-    std::string to_string(pygame::Point pt){
-        return (string)"pygame.Point("+to_string(pt.x)+","+to_string(pt.y)+")";
+    string to_string(pygame::Point pt){
+        return "pygame.Point("s+to_string(pt.x)+','+to_string(pt.y)+')';
+    }
+}//namespace std;
+namespace cppp{
+    std::u8string to_u8string(pygame::Rect rct){
+        return u8"pygame.Rect("sv+to_u8string(rct.x)+u8','+to_u8string(rct.y)+u8','+to_u8string(rct.w)+u8','+to_u8string(rct.h)+u8')';
+    }
+    std::u8string to_u8string(pygame::Point pt){
+        return u8"pygame.Point("sv+to_u8string(pt.x)+u8','+to_u8string(pt.y)+u8')';
     }
 }//namespace std;
 #endif//GSDL_H
