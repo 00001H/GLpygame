@@ -9,7 +9,7 @@ uniform float size;
 uniform float rotation=0.0;
 uniform float hsw=960.0;
 uniform float hsh=540.0;
-vec2 rotate(vec2 pos,float rott){
+vec2 rotate(vec2 pos,const float rott){
     return mat2(cos(rott),sin(rott),-sin(rott),cos(rott))*pos;
 }
 void main(){

@@ -1,4 +1,6 @@
-libs
-libs/*
+libs/libfreetype.a
+libs/libglad.a
+libs/libglfw3.a
 *.exe
 stb_image.h
+*.o

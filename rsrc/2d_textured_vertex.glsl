@@ -12,7 +12,7 @@ uniform float hsw=960.0;
 uniform float hsh=540.0;
 uniform bool flipv=true;
 uniform vec4 region=vec4(0.0,0.0,1.0,1.0);
-vec2 rotate(vec2 pos,float rott){
+vec2 rotate(vec2 pos,const float rott){
     return mat2(cos(rott),sin(rott),-sin(rott),cos(rott))*pos;
 }
 void main(){

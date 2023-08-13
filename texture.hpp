@@ -1,9 +1,6 @@
 #ifndef GLPYGAME_TEXTURE_HPP
 #define GLPYGAME_TEXTURE_HPP
-#include<glad/glad.h>
-#include<glm/glm.hpp>
-#include<cppp.hpp>
-#include<memory>
+#include"include.hpp"
 namespace pygame{
     using namespace std::literals;
     class Texture{

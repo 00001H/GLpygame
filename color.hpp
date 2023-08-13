@@ -17,11 +17,11 @@ namespace pygame{
             #undef defcolor
         }
         namespace{
-            vec3 constexpr rgb(vec4 v){
+            inline constexpr vec3 rgb(vec4 v){
                 return vec3(v.r,v.g,v.b);
             }
         }
-        pygame::Color constexpr blend(pygame::Color src,pygame::Color dst){
+        inline constexpr pygame::Color blend(pygame::Color src,pygame::Color dst){
             return pygame::Color(rgb(src)*src.a+rgb(dst)*dst.a*(1-src.a),1-((1-src.a)*(1-dst.a)));
         }
     }

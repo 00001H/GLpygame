@@ -1,8 +1,6 @@
 #ifndef PYGAME_3DG
 #define PYGAME_3DG
-#include<glm/glm.hpp>
-#include<glm/gtc/matrix_transform.hpp>
-#include<memory>
+#include"include.hpp"
 #include"errs.hpp"
 namespace pygame{
     class Rect3D{

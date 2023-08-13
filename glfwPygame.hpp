@@ -7,18 +7,7 @@ namespace pygame{
         bool _is_init=false;
     }
     void drawInit();
-    void glVer(int mjr,int mnr,bool core=true){
-    #ifndef GLPY_NOWARN_GLVER
-        if(mjr<4||(mjr==4&&mnr<=5)){
-            cppp::fcerr << u8"Warning: Using OpenGL<=4.5. Please enable the required OpenGL extensions(DSA and bindless textures) or this library won't work properly. Use #define GLPY_NOWARN_GLVER to supress."sv << std::endl;
-        }
-    #endif
-        glfwWindowHint(GLFW_CLIENT_API,GLFW_OPENGL_API);
-        glfwWindowHint(GLFW_OPENGL_PROFILE,core?GLFW_OPENGL_CORE_PROFILE:GLFW_OPENGL_COMPAT_PROFILE);
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT,GLFW_TRUE);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,mjr);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,mnr);
-    }
+    void glVer(int mjr,int mnr,bool core=true);
     namespace event{
         enum{
             MOUSEMOTION=0xfa01,MOUSEBUTTONDOWN=0xfa02,MOUSEBUTTONUP=0xfa03,
@@ -68,8 +57,8 @@ namespace pygame{
     }
     namespace display{
         class Window;
-        Window* glCtx=nullptr;
-        void aspected_viewport(int winwi,int winht,float aspect){
+        inline Window* glCtx=nullptr;
+        inline void aspected_viewport(int winwi,int winht,float aspect){
             float wwwi = std::min(float(winwi),float(winht)*aspect);
             float wcwh = wwwi/aspect;
             float wpad = (float(winwi)-wwwi)/2.0f;
@@ -79,7 +68,7 @@ namespace pygame{
         class window_creation_failed : public cppp::u8_logic_error{
             using cppp::u8_logic_error::u8_logic_error;
         };
-        std::unordered_map<GLFWwindow*,Window*> winmaps;
+        inline std::unordered_map<GLFWwindow*,Window*> winmaps;
         class Window{
             int repeatedKey=0;
             int repeatedScan=0;
@@ -104,19 +93,7 @@ namespace pygame{
             static void _handle_mbutton(GLFWwindow* win,int btn,int action,int){
                 winmaps.at(win)->eventqueue.put(event::Event(((action==GLFW_PRESS) ? event::MOUSEBUTTONDOWN : event::MOUSEBUTTONUP),event::MouseButtonEvent(getMousePos(win),btn)));
             }
-            static void _handle_kpress(GLFWwindow* win,int key,int scan,int action,int mods){
-                if(action==GLFW_REPEAT)return;//Ignore system repeats
-                winmaps.at(win)->eventqueue.put(event::Event(((action==GLFW_PRESS) ? event::KEYDOWN : event::KEYUP),event::KeyEvent(key,scan,mods)));
-                if(action==GLFW_PRESS){
-                    winmaps.at(win)->repeatedKey = key;
-                    winmaps.at(win)->repeatedScan = scan;
-                    winmaps.at(win)->repeatedMods = mods;
-                    winmaps.at(win)->effectiveRepeatedFrames = 0u;
-                    winmaps.at(win)->repeating = true;
-                }else if(key==winmaps.at(win)->repeatedKey){
-                    winmaps.at(win)->repeating = false;
-                }
-            }
+            static void _handle_kpress(GLFWwindow* win,int key,int scan,int action,int mods);
             static void _handle_text(GLFWwindow* win, uint_least32_t ch){
                 winmaps.at(win)->eventqueue.put(event::Event(event::TEXT,event::TextEvent(ch)));
             }
@@ -133,7 +110,7 @@ namespace pygame{
             mutable bool closed=false;
             float aspect;
             public:
-                void configureRepeat(size_t bgn,size_t dly){
+                void configure_repeat(size_t bgn,size_t dly){
                     repeatBegin = bgn;
                     repeatExec = dly;
                 }
@@ -211,7 +188,6 @@ namespace pygame{
                 }
                 void set_as_OpenGL_target(){
                     glfwMakeContextCurrent(win);
-                    drawInit();
                     glCtx = this;
                 }
                 [[deprecated("Use snake_case instead")]] void setAsOpenGLTarget(){
@@ -272,15 +248,13 @@ namespace pygame{
                     fbcbf(*this);
                 }
         };
-        void default_resize_fun(Window& w){
-            w.restore_viewport();
-        }
-        void init(){
+        void default_resize_fun(Window&);
+        inline void init(){
             if(_is_init)return;
             glfwInit();
             _is_init = true;
         }
-        void quit(){
+        inline void quit(){
             if(!_is_init)return;
             _is_init = false;
             glfwTerminate();

@@ -1,4 +1,3 @@
-#define CPPP_STRUTILS
 #include<pygame.hpp>
 #include<utility>
 #include<cstdio>
@@ -74,21 +73,13 @@ std::u8string seltex(int i){
 int main(){
     pygame::init();
 {
-    std::shared_ptr<Chlib> pcharlib=nullptr;
-    try{
-        pcharlib = std::make_shared<Chlib>();
-    }catch(FTError &e){
-        std::cout << e.what() << std::endl;
-        int som;
-        std::cin >> som;
-    }
-    Chlib &charlib = *pcharlib;
+    Chlib &charlib = pygame::chlib;
     pygame::glVer(4,6);
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_DEBUG_CONTEXT);
     Window win{1600,900,u8"3D Test"sv};
     win.set_as_OpenGL_target();
-    pygame::setupTemplate0();
+    pygame::setup_template_0();
     #if GL_DEBUG_CONTEXT
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 

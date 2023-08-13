@@ -1,7 +1,5 @@
 #ifndef GLPY_INCL_UNIH
 #define GLPY_INCL_UNIH
-#define STB_IMAGE_IMPLEMENTATION
-#define GLAD_GL_IMPLEMENTATION
 #include<unordered_map>
 #include<filesystem>
 #include<sys/stat.h>
