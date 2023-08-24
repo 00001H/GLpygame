@@ -16,7 +16,7 @@ vec2 rotate(vec2 pos,const float rott){
     return mat2(cos(rott),sin(rott),-sin(rott),cos(rott))*pos;
 }
 void main(){
-    if(rotation>0.00001){
+    if(abs(rotation)>0.00001){
         vec2 centered = pos-rotation_center;
         vec2 rrmc = rotate(centered*imgdims,rotation)+rotation_center*imgdims;
         vec2 poss = rrmc+position;

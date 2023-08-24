@@ -32,7 +32,10 @@ namespace pygame{
         Rect() : x(0.0f), y(0.0f), w(0.0f), h(0.0f){}
         Rect(float x,float y,float w,float h) : x(x),y(y),w(w),h(h) {}
         Rect(Point pos, glm::vec2 dims) : x(pos.x), y(pos.y), w(dims.x), h(dims.y){}
-        Rect reposition(Point origin){
+        Point ltop() const{
+            return {x,y};
+        }
+        Rect reposition(Point origin) const{
             Rect nw = *this;
             nw.x = origin.x;
             nw.y = origin.y;
