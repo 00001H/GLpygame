@@ -58,12 +58,13 @@ namespace pygame{
     namespace display{
         class Window;
         inline Window* glCtx=nullptr;
-        inline void aspected_viewport(int winwi,int winht,float aspect){
+        inline Rect aspected_viewport(int winwi,int winht,float aspect){
             float wwwi = std::min(float(winwi),float(winht)*aspect);
             float wcwh = wwwi/aspect;
             float wpad = (float(winwi)-wwwi)/2.0f;
             float hpad = (float(winht)-wcwh)/2.0f;
             glViewport(int(wpad),int(hpad),int(wwwi),int(wcwh));
+            return {Point(wpad,hpad),glm::vec2{wwwi,wcwh}};
         }
         class window_creation_failed : public cppp::u8_logic_error{
             using cppp::u8_logic_error::u8_logic_error;
@@ -77,18 +78,19 @@ namespace pygame{
             bool repeating=false;
             size_t repeatBegin=47u;
             size_t repeatExec=12u;
-            static Point toPygameCoords(glm::dvec2 in,double sw,double sh){
-                return {(float)(in.x/sw*1920.0),(float)(in.y/sh*1080.0)};
+            Point toPygameCoords(glm::vec2 in){
+                in -= displayframe.ltop();
+                return {in.x/displayframe.w*1920.0f,in.y/displayframe.h*1080.0f};
             }
             static Point getMousePos(GLFWwindow *win){
                 double x,y;
                 glfwGetCursorPos(win,&x,&y);
-                Window *self = winmaps.at(win);
-                return toPygameCoords(vec2{x,y},self->sw,self->sh);
+                Window* self = winmaps.at(win);
+                return self->toPygameCoords({x,y});
             }
             static void _handle_mmotion(GLFWwindow* win,double x,double y){
-                Window *self = winmaps.at(win);
-                self->eventqueue.put(event::Event(event::MOUSEMOTION,toPygameCoords(vec2{x,y},self->sw,self->sh)));
+                Window* self = winmaps.at(win);
+                self->eventqueue.put(event::Event(event::MOUSEMOTION,self->toPygameCoords({x,y})));
             }
             static void _handle_mbutton(GLFWwindow* win,int btn,int action,int){
                 winmaps.at(win)->eventqueue.put(event::Event(((action==GLFW_PRESS) ? event::MOUSEBUTTONDOWN : event::MOUSEBUTTONUP),event::MouseButtonEvent(getMousePos(win),btn)));
@@ -100,6 +102,9 @@ namespace pygame{
             static void _handle_resize(GLFWwindow* win,int wd,int ht){
                 winmaps.at(win)->tellResize(wd,ht);
             }
+            static void _restore(Window& w){
+                w.restore_viewport();
+            }
             GLFWwindow* win;
             std::function<void(Window&)> fbcbf;
             GLFWmonitor* fullscreen_monitor;
@@ -107,6 +112,7 @@ namespace pygame{
             uint32_t fullscreen_fps = 0;
             GLsizei sw;
             GLsizei sh;
+            Rect displayframe;
             mutable bool closed=false;
             float aspect;
             public:
@@ -133,10 +139,10 @@ namespace pygame{
                 Window& operator=(const Window&) = delete;
                 Window(GLsizei width,GLsizei height,const std::u8string_view& title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
                 win(glfwCreateWindow(width,height,cppp::copy_as_plain(title).c_str(),monitor,share)),
-                fbcbf([](Window&){}),
+                fbcbf(_restore),
                 fullscreen_monitor((monitor==nullptr)?glfwGetPrimaryMonitor():monitor),
                 current_monitor(monitor), fullscreen_fps(60), sw(width), sh(height),
-                aspect(float(width)/float(height)){
+                displayframe({0.0f,0.0f},{sw,sh}), aspect(float(width)/float(height)){
                     if(win==NULL){
                         throw window_creation_failed(u8"Window creation failed!"sv);
                     }
@@ -205,8 +211,8 @@ namespace pygame{
                 [[deprecated("Use snake_case instead")]] GLsizei getHeight() const{
                     return height();
                 }
-                void restore_viewport() const{
-                    aspected_viewport(sw,sh,aspect);
+                void restore_viewport(){
+                    displayframe = aspected_viewport(sw,sh,aspect);
                 }
                 void onresize(std::function<void(Window&)> func){
                     fbcbf = func;

@@ -76,67 +76,43 @@ namespace pygame{
         texture_3d_shader.program = GLPY_PLOAD(u8"3d_textured_vertex.glsl"sv,u8"3d_textured_fragment.glsl"sv);
 #endif
 #undef GLPY_PLOAD
-        glGenVertexArrays(1,&texture_vao);
-        glGenBuffers(1,&texture_vbo);
-        glBindVertexArray(texture_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
-        //2(st) = 2/vertex
-        //let's support 400 vtx
-        //that's 800*float
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*800,nullptr,GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(GLfloat),(void*)0);
-        glEnableVertexAttribArray(0);
-
-        glGenVertexArrays(1,&fill_vao);
-        glGenBuffers(1,&fill_vbo);
-        glBindVertexArray(fill_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,fill_vbo);
-        //2(xy)+3(rgb) = 5/vertex
-        //let's support 200 vtx as well
-        //that's 1000*float
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*1000,nullptr,GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,5*sizeof(GLfloat),(void*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,5*sizeof(GLfloat),(void*)(2*sizeof(GLfloat)));
-        glEnableVertexAttribArray(1);
-
-        glGenVertexArrays(1,&colored_polygon_vao);
-        glGenBuffers(1,&colored_polygon_vbo);
-        glBindVertexArray(colored_polygon_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,colored_polygon_vbo);
-
-        //2(xy) = 2/vertex
-        //let's support 400 vtx
-        //that's 800*float
-
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*800,nullptr,GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(GLfloat),(void*)0);
-        glEnableVertexAttribArray(0);
-
-
-#ifndef PYGAME_NO3D
-        glGenVertexArrays(1,&texture_3d_vao);
-        glGenBuffers(1,&texture_3d_vbo);
-        glBindVertexArray(texture_3d_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
-        //xyz(3)+st(2)=5/vertex
-        //Let's support 20 vtx
-        //100 * glfloat
-        glBufferData(GL_ARRAY_BUFFER,sizeof(GLfloat)*100,nullptr,GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,5*sizeof(GLfloat),(void*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,5*sizeof(GLfloat),(void*)(3*sizeof(GLfloat)));
-        glEnableVertexAttribArray(1);
-#endif
-    }
-    void blit(const zTexture& image,const Point& location,float size,float rotation,
-    const glm::vec4& rgn,Shader& shader,bool flipv){
-        float vtx[8] = {
+        DrawBuffer::batch_create({&rect_db,&texture_db,&fill_db,&colored_polygon_db,&texture_3d_db});
+        rect_db.initialize({
             0.0f,1.0f,
             1.0f,1.0f,
             0.0f,0.0f,
             1.0f,0.0f
-        };
+        },GL_STATIC_DRAW);
+        rect_db.vtx_attribs({2uz});
+        
+        //2(st) = 2/vertex
+        //let's support 400 vtx
+        //that's 800*float
+        texture_db.initialize(nullptr,800uz,GL_STREAM_DRAW);
+        texture_db.vtx_attribs({2uz});
+        
+        //2(xy)+3(rgb) = 5/vertex
+        //let's support 200 vtx
+        //that's 1000*float
+        fill_db.initialize(nullptr,1000uz,GL_STREAM_DRAW);
+        fill_db.vtx_attribs({2uz,3uz});
+        
+        //2(xy) = 2/vertex
+        //let's support 400 vtx
+        //that's 800*float
+        colored_polygon_db.initialize(nullptr,800uz,GL_STREAM_DRAW);
+        colored_polygon_db.vtx_attribs({2uz});
+
+#ifndef PYGAME_NO3D
+        //xyz(3)+st(2)=5/vertex
+        //let's support 40 vtx
+        //that's 200*float
+        texture_3d_db.initialize(nullptr,200uz,GL_STREAM_DRAW);
+        texture_3d_db.vtx_attribs({3uz,2uz});
+#endif
+    }
+    void blit(const zTexture& image,const Point& location,float size,float rotation,
+    const glm::vec4& rgn,Shader& shader,bool flipv){
         glUseProgram(shader.program);
         shader.uimg("img",image.handle());
         shader.uv2("position",location);
@@ -146,7 +122,7 @@ namespace pygame{
         shader.u1f("brightness",image.brightness());
         shader.uv4("region",rgn);
         shader.u1ui("flipv",flipv);
-        invoke_shader(vtx,8,4,shader,GL_TRIANGLE_STRIP,texture_vao,texture_vbo);
+        invoke_shader(4uz,shader,rect_db);
         shader.u1ui("flipv",true);
     }
     Rect get_text_rect(Font& font,const cppp::codepoints& cps,const Point& position,
@@ -200,8 +176,6 @@ namespace pygame{
         text_shader.uv4("color",color);
         text_shader.u1f("size",1.0f);
         text_shader.u1f("rotation",0.0f);
-        glBindVertexArray(texture_vao);
-        glBindBuffer(GL_ARRAY_BUFFER,texture_vbo);
         GLuint imgloc = text_shader.getLocation("img");
         Point charpos,posytion = position;
         Rect tr = get_text_rect(font,cps,position,algn,valgn,&maxasc,&mindsc);
@@ -214,6 +188,7 @@ namespace pygame{
             posytion.y += tr.h/2.0f;
         }
         Point sz;
+        rect_db.bind();
         for(const cppp::codepoint& chr : cps){
             try{
                 ch = font.loadChar(chr);
@@ -223,13 +198,6 @@ namespace pygame{
             glUniformHandleui64ARB(imgloc,ch->tex->handle());
             sz = Point((float)ch->tex->width(),(float)ch->tex->height());
             text_shader.uv2("imgdims",sz);
-            float vtx[8] = {
-                0.0f,0.0f,
-                0.0f,1.0f,
-                1.0f,0.0f,
-                1.0f,1.0
-            };
-            glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(vtx),vtx);
             charpos = posytion;
             charpos.x += ch->xoffset;
             charpos.y -= ch->descent+sz.y;
@@ -292,20 +260,14 @@ namespace pygame{
     }
     namespace draw{
         void linerect(Line in,float thickness,Color color,Shader& shader){
-            float vtx[8uz] = {
-                -0.5f,0.0f,
-                -0.5f,1.0f,
-                    0.5f,0.0f,
-                    0.5f,1.0f
-            };
             Point din{in};
-            shader.uv2("position",in.a);
+            shader.uv2("position",in.a-glm::vec2(0.5f*thickness,0.0f));
             shader.u2f("imgdims",thickness,in.length());
-            shader.u2f("rotation_center",0.0f,0.0f);
+            shader.u2f("rotation_center",0.5f,0.0f);
             shader.u1f("size",1.0f);
             shader.u1f("rotation",std::atan2(din.y,din.x)-glm::half_pi<float>());
             shader.uv4("color",color);
-            invoke_shader(vtx,8u,4u,shader);
+            invoke_shader(4u,shader,rect_db);
             shader.u2f("rotation_center",0.5f,0.5f);
         }
 #ifndef PYGAME_NO3D
@@ -325,26 +287,26 @@ namespace pygame{
             };
             invoke_shader_nb(vtx,20u,4u);
         }
+        //WARNING: reassigns the 3D buffer on each call! Not very fast.
         void rect3D(const Context3D& context,const Rect3D& in,const zTexture& texture){
             texture_3d_shader.use();
-            glBindVertexArray(texture_3d_vao);
-            glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
             texture_3d_shader.um4("view",context.camera.viewmatrix());
             glm::mat4 projmat = glm::perspective(context.fov,context.aspect_ratio,
                                 context.near_clip,context.far_clip);
             texture_3d_shader.um4("projection",projmat);
             texture_3d_shader.um4("model",in.modelmatrix());
+            texture_3d_db.bind();
             rect3D_nb_nm(in,texture);
         }
+        //WARNING: reassigns the 3D buffer on each call! Not very fast.
         void cube(const Context3D& context,const Cube& in,const CubeTexture& textures){
             texture_3d_shader.use();
-            glBindVertexArray(texture_3d_vao);
-            glBindBuffer(GL_ARRAY_BUFFER,texture_3d_vbo);
             texture_3d_shader.um4("view",context.camera.viewmatrix());
             glm::mat4 projmat = glm::perspective(context.fov,context.aspect_ratio,
                                 context.near_clip,context.far_clip);
             texture_3d_shader.um4("projection",projmat);
             texture_3d_shader.um4("model",in.modelmatrix());
+            texture_3d_db.bind();
             if(textures.back){
                 rect3D_nb_nm(in.back_face(),textures.back);
             }

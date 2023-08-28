@@ -61,6 +61,7 @@
     "stop_token": "cpp",
     "thread": "cpp",
     "filesystem": "cpp",
-    "span": "cpp"
+    "span": "cpp",
+    "unordered_set": "cpp"
   }
 }

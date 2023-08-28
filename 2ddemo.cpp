@@ -10,16 +10,14 @@ int main(){
     init();
 {
     glVer(4,6);
-    glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     Window win{800,600,u8"this is a title"sv};
     win.set_as_OpenGL_target();
     drawInit();
-    Chlib charlib;
     glViewport(0,0,800,600);
-    Font& DEFAULT_FONT = charlib.loadfont(u8"StSong"sv,u8"demorsrc/st_song.ttf"sv);
+    Font& DEFAULT_FONT = pygame::chlib.loadfont(u8"StSong"s,u8"demorsrc/st_song.ttf"s);
     DEFAULT_FONT.set_dimensions(0,60);
-    setupTemplate0();
-    Point texpos = {30.0,32.0};
+    setup_template_0();
+    Point texpos = {30.0f,32.0f};
     std::u8string tt;
     glClearColor(0.0f,0.5f,0.75f,1.0f);
     while(!win.should_close()){
@@ -32,6 +30,7 @@ int main(){
             }
         }
         tt = u8"CJK Test: 中日韩"sv;
+        draw::rect({SCRCNTR-glm::vec2{5.0f},glm::vec2{10.0f}},CYAN);
         draw::linerect({SCRCNTR,win.mouse_pos()},12.0f);
         draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),align::CENTER,v_align::CENTER);
         win.swap_buffers();

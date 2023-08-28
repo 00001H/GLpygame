@@ -80,6 +80,7 @@ int main(){
     Window win{1600,900,u8"3D Test"sv};
     win.set_as_OpenGL_target();
     pygame::setup_template_0();
+    glDisable(GL_CULL_FACE);
     #if GL_DEBUG_CONTEXT
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 

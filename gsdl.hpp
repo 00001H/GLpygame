@@ -8,55 +8,6 @@
 #include"3dgeometry.hpp"
 #endif
 namespace pygame{
-    using glm::vec2;
-    using glm::vec3;
-    using glm::vec4;
-    typedef vec2 Point;
-    typedef vec4 Color;
-    struct Line{
-        Point a;
-        Point b;
-        Line(Point a,Point b) : a(a), b(b) {}
-        operator glm::vec2() const{
-            return b-a;
-        }
-        float length() const{
-            return glm::distance(a,b);
-        }
-    };
-    struct Rect{
-        float x;
-        float y;
-        float w;
-        float h;
-        Rect() : x(0.0f), y(0.0f), w(0.0f), h(0.0f){}
-        Rect(float x,float y,float w,float h) : x(x),y(y),w(w),h(h) {}
-        Rect(Point pos, glm::vec2 dims) : x(pos.x), y(pos.y), w(dims.x), h(dims.y){}
-        Point ltop() const{
-            return {x,y};
-        }
-        Rect reposition(Point origin) const{
-            Rect nw = *this;
-            nw.x = origin.x;
-            nw.y = origin.y;
-            return nw;
-        }
-        Point center() const{
-            return {x+w/2.0f,y+h/2.0f};
-        }
-        bool colliderect(Rect other) const{
-            return ((x<(other.y+other.w))//left is lefter than other right
-                  &&((x+w)>(other.x))//right is righter than other left
-                  &&(y<(other.y+other.h))//top is topper than other bottom//note:bigger y = lower
-                  &&((y+h)>(other.y)));//bottom is bottomer than other top
-        }
-        bool collidepoint(Point point) const{
-            return (((point.x)<(x+w))//lefter than right
-                  &&((point.x)>x)//righter than left
-                  &&((point.y)<(y+h))//topper than bottom
-                  &&((point.y)>y));//bottomer than top
-        }
-    };
 #ifndef PYGAME_NO3D
     struct CubeTexture{
         public:
@@ -193,11 +144,79 @@ namespace pygame{
             glProgramUniformHandleui64ARB(program,getLocation(var),hndl);
         }
     };
-    inline GLuint fill_vao,fill_vbo,texture_vao,texture_vbo;
-    inline GLuint colored_polygon_vao,colored_polygon_vbo;
+    class DrawBuffer{
+        GLuint vao;
+        GLuint vbo;
+        public:
+            DrawBuffer(GLuint vao,GLuint vbo) : vao(vao), vbo(vbo){}
+            DrawBuffer() : DrawBuffer(0,0){}
+            void assign(GLuint ao,GLuint bo){
+                vao = ao;
+                vbo = bo;
+            }
+            void bind() const{
+                glBindVertexArray(vao);
+                glBindBuffer(GL_ARRAY_BUFFER,vbo);
+            }
+            void create(){
+                glGenVertexArrays(1,&vao);
+                glGenBuffers(1,&vbo);
+            }
+            template<size_t count>
+            static void batch_create(DrawBuffer* const(&p)[count]){
+                GLuint vaos[count];
+                GLuint vbos[count];
+                glGenVertexArrays(count,vaos);
+                glGenBuffers(count,vbos);
+                for(size_t i=0uz;i<count;++i){
+                    p[i]->assign(vaos[i],vbos[i]);
+                    glBindVertexArray(vaos[i]);
+                    glBindBuffer(GL_ARRAY_BUFFER,vbos[i]);
+                }
+                glBindVertexArray(0);
+                glBindBuffer(GL_ARRAY_BUFFER,0);
+            }
+            void initialize(const GLfloat* data,size_t count,GLenum usage){
+                glNamedBufferData(vbo,count*sizeof(GLfloat),data,usage);
+            }
+            template<size_t count>
+            void initialize(GLfloat const(&data)[count],GLenum usage){
+                initialize(data,count,usage);
+            }
+            void subdata(const GLfloat* data,size_t count,size_t begin=0uz){
+                glNamedBufferSubData(vbo,begin*sizeof(GLfloat),count*sizeof(GLfloat),data);
+            }
+            void* mmap(GLenum access){
+                return glMapNamedBuffer(vbo,access);
+            }
+            GLfloat* fmmap(GLenum access){
+                return static_cast<GLfloat*>(mmap(access));
+            }
+            struct broken_buffer_error : public error{using error::error;};
+            void unmmap(){
+                if(glUnmapNamedBuffer(vbo)==GL_FALSE){
+                    throw broken_buffer_error(u8"DrawBuffer::unmap(): VBO broken(this is usually not due to a user-side problem)"sv);
+                }
+            }
+            template<size_t count>
+            void vtx_attribs(size_t const(&sizes)[count]){
+                size_t va_length = 0uz;
+                size_t stride = 0uz;
+                for(const size_t& l : sizes){
+                    stride += l*sizeof(GLfloat);
+                }
+                glVertexArrayVertexBuffer(vao,0,vbo,0,stride);
+                for(size_t i=0uz;i<count;++i){
+                    glVertexArrayAttribFormat(vao,i,sizes[i],GL_FLOAT,GL_FALSE,va_length);
+                    glVertexArrayAttribBinding(vao,i,0);
+                    va_length += sizes[i]*sizeof(GLfloat);
+                    glEnableVertexArrayAttrib(vao,i);
+                }
+            }
+    };
+    inline DrawBuffer fill_db,texture_db,rect_db,colored_polygon_db,texture_3d_db;
     inline Shader texture_shader,text_shader,fill_shader,single_color_shader;
 #ifndef PYGAME_NO3D
-    inline GLuint texture_3d_vao,texture_3d_vbo;
     inline Shader texture_3d_shader;
 #endif
     inline void setRenderRect(float xmax,float ymax,Shader& sh){
@@ -219,15 +238,19 @@ namespace pygame{
     #define GLPY_PLOAD load_rsrc_program
     #endif
     void gllInit();
-    inline void invoke_shader_nb(float* data,unsigned int data_cnt,unsigned int vert_cnt,GLenum drawmode=GL_TRIANGLE_STRIP){
+    inline void invoke_shader_nb(float* data,size_t data_cnt,size_t vert_cnt,GLenum drawmode=GL_TRIANGLE_STRIP){
         glBufferSubData(GL_ARRAY_BUFFER,0,data_cnt*sizeof(float),data);
         glDrawArrays(drawmode,0,vert_cnt);
     }
-    inline void invoke_shader(float* data,unsigned int data_cnt,unsigned int vert_cnt,const Shader& shdr,GLenum drawmode=GL_TRIANGLE_STRIP, GLuint vao=colored_polygon_vao, GLuint vbo=colored_polygon_vbo){
-        glBindVertexArray(vao);
-        glBindBuffer(GL_ARRAY_BUFFER,vbo);
+    inline void invoke_shader(float* data,size_t data_cnt,size_t vert_cnt,const Shader& shdr,DrawBuffer& db,GLenum drawmode=GL_TRIANGLE_STRIP){
+        db.bind();
         shdr.use();
         invoke_shader_nb(data,data_cnt,vert_cnt,drawmode);
+    }
+    inline void invoke_shader(size_t vert_cnt,const Shader& shdr,DrawBuffer& db,GLenum drawmode=GL_TRIANGLE_STRIP){
+        db.bind();
+        shdr.use();
+        glDrawArrays(drawmode,0,vert_cnt);
     }
     void blit(const zTexture& image,const Point& location,float size=1.0f,float rotation=0.0f,
     const glm::vec4&rgn={0.0f,0.0f,1.0f,1.0f},Shader& shader=texture_shader,bool flipv=true);
@@ -254,19 +277,13 @@ namespace pygame{
                    const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true);
     namespace draw{
         inline void rect(Rect in,Color color,Shader& shader=single_color_shader){
-            float vtx[8] = {
-                0.0f,0.0f,
-                0.0f,1.0f,
-                1.0f,0.0f,
-                1.0f,1.0f
-            };
             shader.use();
             shader.u2f("position",in.x,in.y);
             shader.u2f("imgdims",in.w,in.h);
             shader.u1f("size",1.0f);
             shader.u1f("rotation",0.0f);
             shader.uv4("color",color);
-            invoke_shader(vtx,8u,4u,shader);
+            invoke_shader(4uz,shader,rect_db);
         }
         void linerect(Line in,float thickness,Color color={1.0f,1.0f,1.0f,1.0f},Shader& shader=single_color_shader);
 #ifndef PYGAME_NO3D
