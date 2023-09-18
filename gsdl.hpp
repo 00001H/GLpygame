@@ -94,7 +94,7 @@ namespace pygame{
                 glBindFramebuffer(target,0);
             }
     };
-    GLuint loadprogram(const std::u8string_view& vs,const std::u8string_view& fs);
+    GLuint loadprogram(std::u8string_view vs,std::u8string_view fs);
     struct Shader{
         GLuint program=-1;
         mutable std::unordered_map<std::string,GLint> locations;
@@ -219,13 +219,19 @@ namespace pygame{
 #ifndef PYGAME_NO3D
     inline Shader texture_3d_shader;
 #endif
-    inline void setRenderRect(float xmax,float ymax,Shader& sh){
+    inline void set_render_rect(float xmax,float ymax,Shader& sh){
         sh.u1f("hsw",xmax/2.0f);
         sh.u1f("hsh",ymax/2.0f);
     }
+    inline void set_render_rect(float xmax,float ymax){
+        set_render_rect(xmax,ymax,texture_shader);
+        set_render_rect(xmax,ymax,text_shader);
+        set_render_rect(xmax,ymax,fill_shader);
+        set_render_rect(xmax,ymax,single_color_shader);
+    }
 
     using namespace std::literals;
-    inline GLuint load_rsrc_program(const std::u8string_view& x,const std::u8string_view& y){
+    inline GLuint load_rsrc_program(std::u8string_view x,std::u8string_view y){
         cppp::dirpath p = x;
         cppp::dirpath q = y;
         cppp::dirpath rp = "rsrc"s/p;
@@ -263,25 +269,24 @@ namespace pygame{
     Rect get_text_rect(Font& font,const cppp::codepoints& cps,const Point& position,
                    align algn=align::LEFT,v_align valgn=v_align::TOP,
         float* masc=nullptr,float* mdsc=nullptr);
-    inline Rect get_text_rect(Font& font,const std::u8string_view& text,const Point& position,
+    inline Rect get_text_rect(Font& font,std::u8string_view text,const Point& position,
                    align algn=align::LEFT,v_align valgn=v_align::TOP){
         return get_text_rect(font,cppp::codepoints_of(text),position,algn,valgn);
     }
     Rect draw_singleline_text(Font& font,const cppp::codepoints& cps,const Point& position,
                    const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP);
-    inline Rect draw_singleline_text(Font& font,const std::u8string_view& text,const Point& position,
+    inline Rect draw_singleline_text(Font& font,std::u8string_view text,const Point& position,
                    const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
         return draw_singleline_text(font,cppp::codepoints_of(text),position,color,algn,valgn);
     }
-    Rect draw_text(Font& font,const std::u8string_view& text,const Point& position,
+    Rect draw_text(Font& font,std::u8string_view text,const Point& position,
                    const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true);
     namespace draw{
-        inline void rect(Rect in,Color color,Shader& shader=single_color_shader){
+        inline void rect(Rect in,Color color,float rot=0.0f,Shader& shader=single_color_shader){
             shader.use();
-            shader.u2f("position",in.x,in.y);
-            shader.u2f("imgdims",in.w,in.h);
-            shader.u1f("size",1.0f);
-            shader.u1f("rotation",0.0f);
+            shader.uv2("position",in.ltop());
+            shader.uv2("imgdims",in.dims());
+            shader.u1f("rotation",rot);
             shader.uv4("color",color);
             invoke_shader(4uz,shader,rect_db);
         }
@@ -322,7 +327,7 @@ namespace pygame{
 }//namespace pygame;
 namespace std{
     inline string to_string(pygame::Rect rct){
-        return "pygame.Rect("s+to_string(rct.x)+','+to_string(rct.y)+','+to_string(rct.w)+','+to_string(rct.h)+')';
+        return "pygame.Rect("s+to_string(rct.left())+','+to_string(rct.top())+','+to_string(rct.width())+','+to_string(rct.height())+')';
     }
     inline string to_string(pygame::Point pt){
         return "pygame.Point("s+to_string(pt.x)+','+to_string(pt.y)+')';
@@ -330,7 +335,7 @@ namespace std{
 }//namespace std;
 namespace cppp{
     inline std::u8string to_u8string(pygame::Rect rct){
-        return u8"pygame.Rect("sv+to_u8string(rct.x)+u8','+to_u8string(rct.y)+u8','+to_u8string(rct.w)+u8','+to_u8string(rct.h)+u8')';
+        return u8"pygame.Rect("sv+to_u8string(rct.left())+u8','+to_u8string(rct.top())+u8','+to_u8string(rct.height())+u8','+to_u8string(rct.height())+u8')';
     }
     inline std::u8string to_u8string(pygame::Point pt){
         return u8"pygame.Point("sv+to_u8string(pt.x)+u8','+to_u8string(pt.y)+u8')';

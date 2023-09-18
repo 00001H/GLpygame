@@ -3,6 +3,7 @@
 #include"gsdl.hpp"
 namespace pygame{
     namespace color{
+        using pygame::Color;
         inline namespace colcon{
             #define defcolor const constexpr pygame::Color
             defcolor WHITE(1.0f,1.0f,1.0f,1.0f);

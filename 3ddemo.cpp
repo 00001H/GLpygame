@@ -48,7 +48,7 @@ std::u8string surr(bool apply, std::u8string inside){
     return u8' '+inside+u8' ';
 }
 template<typename T>
-std::u8string subst(const std::u8string_view& st,const std::initializer_list<T>& il){
+std::u8string subst(std::u8string_view st,const std::initializer_list<T>& il){
     auto s = il.begin();
     auto e = il.end();
     std::u8string out;

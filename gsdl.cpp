@@ -13,7 +13,7 @@ namespace pygame{
         stbi_image_free(data);
         return v;
     }
-    GLuint loadprogram(const std::u8string_view& vs,const std::u8string_view& fs){
+    GLuint loadprogram(std::u8string_view vs,std::u8string_view fs){
         GLint compiled;
         std::u8string vsrc{loadStringFile(vs)};
         std::string vtxsrc{cppp::copy_as_plain(vsrc)};
@@ -174,18 +174,17 @@ namespace pygame{
         float mindsc;
         text_shader.use();
         text_shader.uv4("color",color);
-        text_shader.u1f("size",1.0f);
         text_shader.u1f("rotation",0.0f);
         GLuint imgloc = text_shader.getLocation("img");
         Point charpos,posytion = position;
         Rect tr = get_text_rect(font,cps,position,algn,valgn,&maxasc,&mindsc);
-        posytion.x = tr.x;
+        posytion.x = tr.x();
         if(valgn==v_align::TOP){
             posytion.y += maxasc;
         }else if(valgn==v_align::BOTTOM){
             posytion.y += mindsc;
         }else if(valgn==v_align::CENTER){
-            posytion.y += tr.h/2.0f;
+            posytion.y += tr.height()/2.0f;
         }
         Point sz;
         rect_db.bind();
@@ -207,7 +206,7 @@ namespace pygame{
         }
         return tr;
     }
-    Rect draw_text(Font& font,const std::u8string_view& text,const Point& position,
+    Rect draw_text(Font& font,std::u8string_view text,const Point& position,
                    const Color& color,align algn,v_align valgn,bool do_render){
         using text_line = std::pair<cppp::codepoints,float>;
         std::vector<text_line> lines;
@@ -229,20 +228,19 @@ namespace pygame{
                 tmp = get_text_rect(font,line,position,algn);
                 lines.push_back(std::make_pair(line,y));
                 if(first){
-                    bbox.x = tmp.x;
-                    bbox.y = tmp.y;
+                    bbox.pos() = tmp.pos();
                     first=false;
                 }
-                bbox.w = glm::max(bbox.w,tmp.w);
-                bbox.h = y+tmp.h;
+                bbox.width() = glm::max(bbox.width(),tmp.width());
+                bbox.height() = y+tmp.height();
                 y += font.getHeight();
                 line.clear();
             }
         }
         if(valgn==v_align::BOTTOM){
-            ydelta -= bbox.h;
+            ydelta -= bbox.height();
         }else if(valgn==v_align::CENTER){
-            ydelta -= bbox.h/2.0f;
+            ydelta -= bbox.height()/2.0f;
         }else if(valgn==v_align::BASELINE){
             //NEW: Allow baseline alignment
 
@@ -250,7 +248,7 @@ namespace pygame{
         }else{
             assert(valgn==v_align::TOP);
         }
-        bbox.y += ydelta;
+        bbox.y() += ydelta;
         if(do_render){
             for(const text_line& ln : lines){
                 draw_singleline_text(font,ln.first,position+Point(0.0f,ln.second+ydelta),color,algn,valgn==v_align::BASELINE?valgn:v_align::TOP);
@@ -264,7 +262,6 @@ namespace pygame{
             shader.uv2("position",in.a-glm::vec2(0.5f*thickness,0.0f));
             shader.u2f("imgdims",thickness,in.length());
             shader.u2f("rotation_center",0.5f,0.0f);
-            shader.u1f("size",1.0f);
             shader.u1f("rotation",std::atan2(din.y,din.x)-glm::half_pi<float>());
             shader.uv4("color",color);
             invoke_shader(4u,shader,rect_db);

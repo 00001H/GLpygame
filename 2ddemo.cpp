@@ -29,7 +29,7 @@ int main(){
                 texpos = mevt.pos;
             }
         }
-        tt = u8"CJK Test: 中日韩"sv;
+        tt = u8"QWERTY CJK Test: 中日韩"sv;
         draw::rect({SCRCNTR-glm::vec2{5.0f},glm::vec2{10.0f}},CYAN);
         draw::linerect({SCRCNTR,win.mouse_pos()},12.0f);
         draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),align::CENTER,v_align::CENTER);

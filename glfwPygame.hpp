@@ -18,6 +18,14 @@ namespace pygame{
             int type;
             std::any value;
             Event(int etype,std::any thing) : type(etype),value(thing){}
+            template<typename T>
+            T& v(){
+                return std::any_cast<T&>(value);
+            }
+            template<typename T>
+            const T& v() const{
+                return std::any_cast<const T&>(value);
+            }
         };
         class Events{
             private:
@@ -80,7 +88,7 @@ namespace pygame{
             size_t repeatExec=12u;
             Point toPygameCoords(glm::vec2 in){
                 in -= displayframe.ltop();
-                return {in.x/displayframe.w*1920.0f,in.y/displayframe.h*1080.0f};
+                return {in.x/displayframe.width()*1920.0f,in.y/displayframe.height()*1080.0f};
             }
             static Point getMousePos(GLFWwindow *win){
                 double x,y;
@@ -132,12 +140,9 @@ namespace pygame{
                         }
                     }
                 }
-                [[deprecated("Use snake_case instead")]] void tickRepeats(){
-                    tick_repeats();
-                }
                 Window(const Window&) = delete;
                 Window& operator=(const Window&) = delete;
-                Window(GLsizei width,GLsizei height,const std::u8string_view& title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
+                Window(GLsizei width,GLsizei height,std::u8string_view title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
                 win(glfwCreateWindow(width,height,cppp::copy_as_plain(title).c_str(),monitor,share)),
                 fbcbf(_restore),
                 fullscreen_monitor((monitor==nullptr)?glfwGetPrimaryMonitor():monitor),
@@ -177,39 +182,21 @@ namespace pygame{
                 Point mouse_pos() const{
                     return getMousePos(win);
                 }
-                [[deprecated("Use snake_case instead")]] Point getMousePos() const{
-                    return mouse_pos();
-                }
                 GLFWwindow* glfw_handle() const{
                     return win;
                 }
-                [[deprecated("Use snake_case instead")]] GLFWwindow* glfwWindow() const{
-                    return glfw_handle();
-                }
                 bool should_close() const{
                     return glfwWindowShouldClose(win);
-                }
-                [[deprecated("Use snake_case instead")]] bool shouldClose() const{
-                    return should_close();
                 }
                 void set_as_OpenGL_target(){
                     glfwMakeContextCurrent(win);
                     glCtx = this;
                 }
-                [[deprecated("Use snake_case instead")]] void setAsOpenGLTarget(){
-                    set_as_OpenGL_target();
-                }
                 GLsizei width() const{
                     return sw;
                 }
-                [[deprecated("Use snake_case instead")]] GLsizei getWidth() const{
-                    return width();
-                }
                 GLsizei height() const{
                     return sh;
-                }
-                [[deprecated("Use snake_case instead")]] GLsizei getHeight() const{
-                    return height();
                 }
                 void restore_viewport(){
                     displayframe = aspected_viewport(sw,sh,aspect);
@@ -220,9 +207,6 @@ namespace pygame{
                 void swap_buffers() const{
                     glfwSwapBuffers(win);
                 }
-                [[deprecated("Use snake_case instead")]] void swapBuffers() const{
-                    swap_buffers();
-                }
                 void close() const{
                     if(!closed)glfwDestroyWindow(win);
                     closed = true;
@@ -230,14 +214,8 @@ namespace pygame{
                 bool get_key(int key) const{
                     return glfwGetKey(win,key)==GLFW_PRESS;
                 }
-                [[deprecated("Use snake_case instead")]] bool getKey(int key) const{
-                    return get_key(key);
-                }
                 bool get_mouse_button(int btn) const{
                     return glfwGetMouseButton(win,btn)==GLFW_PRESS;
-                }
-                [[deprecated("Use snake_case instead")]] bool getMouseBtn(int btn) const{
-                    return get_mouse_button(btn);
                 }
                 ~Window(){
                     if(_is_init){
