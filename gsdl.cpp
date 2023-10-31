@@ -13,9 +13,8 @@ namespace pygame{
         stbi_image_free(data);
         return v;
     }
-    GLuint loadprogram(std::u8string_view vs,std::u8string_view fs){
+    GLuint loadpsource(std::u8string_view vsrc,std::u8string_view fsrc){
         GLint compiled;
-        std::u8string vsrc{loadStringFile(vs)};
         std::string vtxsrc{cppp::copy_as_plain(vsrc)};
         const char *vtxsrc_cstr = vtxsrc.c_str();
         GLuint vshad = glCreateShader(GL_VERTEX_SHADER);
@@ -30,7 +29,6 @@ namespace pygame{
             throw vshad_compilation_failed(cppp::copy_as_u8(infolog));
         }
 
-        std::u8string fsrc{loadStringFile(fs)};
         std::string frgsrc{cppp::copy_as_plain(fsrc)};
         const char* frgsrc_cstr = frgsrc.c_str();
         GLuint fshad = glCreateShader(GL_FRAGMENT_SHADER);
@@ -62,6 +60,9 @@ namespace pygame{
         glDeleteShader(vshad);
         glDeleteShader(fshad);
         return program;
+    }
+    GLuint loadprogram(std::u8string_view vs,std::u8string_view fs){
+        return loadpsource(load_string_file(vs),load_string_file(fs));
     }
     void gllInit(){
         if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
@@ -125,12 +126,35 @@ namespace pygame{
         invoke_shader(4uz,shader,rect_db);
         shader.u1ui("flipv",true);
     }
-    Rect get_text_rect(Font& font,const cppp::codepoints& cps,const Point& position,
-                   align algn,v_align valgn,float* masc,float* mdsc){
+    class LineMetrics{
+        float width;
+        float max_ascent;
+        //NEGATIVE!!
+        float min_descent;
+        public:
+            constexpr LineMetrics(float w,float ma,float md) : width(w), max_ascent(ma),
+            min_descent(md){}
+            float w() const{
+                return width;
+            }
+            float h() const{
+                return max_ascent-min_descent;
+            }
+            float asc() const{
+                return max_ascent;
+            }
+            float adsc() const{
+                return -min_descent;
+            }
+            float dsc() const{
+                return min_descent;
+            }
+    };
+    LineMetrics get_line_metrics(Font& font,const cppp::codepoints& cps){
         float textwidth=0.0f;
         float maxascent=0.0f;
+        //NEGATIVE!!
         float mindescent=0.0f;
-        float xdelta=0.0f,ydelta=0.0f;
         char_tex ch=nullptr;
         for(const cppp::codepoint& chr : cps){
             try{
@@ -142,119 +166,73 @@ namespace pygame{
             maxascent = std::max(maxascent,ch->ascent);
             mindescent = std::min(mindescent,ch->descent);
         }
-        if(algn==align::CENTER){
-            xdelta -= textwidth/2.0f;
-        }else if(algn==align::RIGHT){
-            xdelta -= textwidth;
-        }else{
-            assert(algn==align::LEFT);
-        }
-        float textheight = maxascent-mindescent;
-        if(valgn==v_align::BOTTOM){
-            ydelta -= textheight;
-        }else if(valgn==v_align::CENTER){
-            ydelta -= textheight/2.0f;
-        }else if(valgn==v_align::BASELINE){
-            ydelta -= maxascent;
-        }else{
-            assert(valgn==v_align::TOP);
-        }
-        if(masc!=nullptr){
-            *masc = maxascent;
-        }
-        if(mdsc!=nullptr){
-            *mdsc = mindescent;
-        }
-        return Rect(position.x+xdelta,position.y+ydelta,textwidth,textheight);
+        return {textwidth,maxascent,mindescent};
     }
-    Rect draw_singleline_text(Font& font,const cppp::codepoints& cps,const Point& position,
-                   const Color& color,align algn,v_align valgn){
-        char_tex ch=nullptr;
-        float maxasc;
-        float mindsc;
+    void draw_text(Font& font,std::u8string_view text,const Point& position,
+                   const Color& color,float size,align algn,v_align valgn){
+        rect_db.bind();
         text_shader.use();
         text_shader.uv4("color",color);
         text_shader.u1f("rotation",0.0f);
-        GLuint imgloc = text_shader.getLocation("img");
-        Point charpos,posytion = position;
-        Rect tr = get_text_rect(font,cps,position,algn,valgn,&maxasc,&mindsc);
-        posytion.x = tr.x();
-        if(valgn==v_align::TOP){
-            posytion.y += maxasc;
-        }else if(valgn==v_align::BOTTOM){
-            posytion.y += mindsc;
-        }else if(valgn==v_align::CENTER){
-            posytion.y += tr.height()/2.0f;
+        std::vector<cppp::codepoints> lines{cppp::split<char32_t>(cppp::codepoints_of(text),U'\n')};
+        std::vector<LineMetrics> lms;
+        float w{0.0f};
+        for(const auto& l : lines){
+            LineMetrics& lm{lms.emplace_back(get_line_metrics(font,l))};
+            w = std::max(w,lm.w());
         }
-        Point sz;
-        rect_db.bind();
-        for(const cppp::codepoint& chr : cps){
-            try{
-                ch = font.loadChar(chr);
-            }catch(FTError&){
-                ch = font.loadChar('?');
-            }
-            glUniformHandleui64ARB(imgloc,ch->tex->handle());
-            sz = Point((float)ch->tex->width(),(float)ch->tex->height());
-            text_shader.uv2("imgdims",sz);
-            charpos = posytion;
-            charpos.x += ch->xoffset;
-            charpos.y -= ch->descent+sz.y;
-            text_shader.uv2("position",charpos);
-            glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-            posytion.x += ch->distance;
-        }
-        return tr;
-    }
-    Rect draw_text(Font& font,std::u8string_view text,const Point& position,
-                   const Color& color,align algn,v_align valgn,bool do_render){
-        using text_line = std::pair<cppp::codepoints,float>;
-        std::vector<text_line> lines;
-        float y = 0.0f;
-        float ydelta = 0.0f;
-        Rect bbox;
-        Rect tmp;
-        bool first=true;
-        cppp::codepoints line;
-        size_t i=0;
-        cppp::codepoints cps = cppp::codepoints_of(text);
-        for(const cppp::codepoint& ch : cps){
-            if(ch=='\r')continue;
-            if(ch!='\n'){
-                line += ch;
-            }
-            ++i;
-            if(ch=='\n'||(i>=cps.size())){
-                tmp = get_text_rect(font,line,position,algn);
-                lines.push_back(std::make_pair(line,y));
-                if(first){
-                    bbox.pos() = tmp.pos();
-                    first=false;
-                }
-                bbox.width() = glm::max(bbox.width(),tmp.width());
-                bbox.height() = y+tmp.height();
-                y += font.getHeight();
-                line.clear();
-            }
-        }
+        const float h{font.get_height()*lines.size()};
+        float y{0.0f};
         if(valgn==v_align::BOTTOM){
-            ydelta -= bbox.height();
+            y += h;
         }else if(valgn==v_align::CENTER){
-            ydelta -= bbox.height()/2.0f;
-        }else if(valgn==v_align::BASELINE){
-            //NEW: Allow baseline alignment
-
-            // throw pygame::error(u8"Cannot render multiline with BASELINE align"sv);
+            y += h/2.0f;
         }else{
             assert(valgn==v_align::TOP);
         }
-        bbox.y() += ydelta;
-        if(do_render){
-            for(const text_line& ln : lines){
-                draw_singleline_text(font,ln.first,position+Point(0.0f,ln.second+ydelta),color,algn,valgn==v_align::BASELINE?valgn:v_align::TOP);
-            }
+        y *= size;
+
+        float xdelta{0.0f};
+        if(algn==align::CENTER){
+            xdelta -= w/2.0f;
+        }else if(algn==align::RIGHT){
+            xdelta -= w;
+        }else{
+            assert(algn==align::LEFT);
         }
-        return bbox;
+        xdelta *= size;
+        cppp::codepoints line;
+        cppp::codepoints cps = cppp::codepoints_of(text);
+        cps.push_back(U'\n');
+        char_tex gly{nullptr};
+        float x;
+        for(size_t i=0uz;i<lines.size();++i){
+            x = xdelta;
+            LineMetrics lm{get_line_metrics(font,lines[i])};
+            for(const cppp::codepoint& ch : lines[i]){
+                try{
+                    gly = font.loadChar(ch);
+                }catch(FTError&){
+                    gly = font.loadChar('?');
+                }
+                text_shader.uimg("img",gly->tex->handle());
+                glm::vec2 sz{gly->tex->width(),gly->tex->height()};
+                Point drwpos{x+gly->xoffset*size,y};
+                drwpos += position;
+                text_shader.uv2("imgdims",sz*size);
+                drwpos.y -= gly->ascent*size;
+                if(valgn==v_align::CENTER){
+                    drwpos.y -= lm.asc()*size/2.0f;
+                }
+                if(valgn==v_align::BOTTOM){
+                    drwpos.y -= lm.asc()*size;
+                }
+                text_shader.uv2("position",drwpos);
+                glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+                x += gly->distance*size;
+            }
+            y += font.get_height()*size;
+        }
     }
     namespace draw{
         void linerect(Line in,float thickness,Color color,Shader& shader){

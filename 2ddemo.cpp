@@ -9,7 +9,7 @@ using pygame::time::Clock;
 int main(){
     init();
 {
-    glVer(4,6);
+    gl_ver(4,6);
     Window win{800,600,u8"this is a title"sv};
     win.set_as_OpenGL_target();
     drawInit();
@@ -20,6 +20,8 @@ int main(){
     Point texpos = {30.0f,32.0f};
     std::u8string tt;
     glClearColor(0.0f,0.5f,0.75f,1.0f);
+    float s{1.0f};
+    v_align a{v_align::TOP};
     while(!win.should_close()){
         glClear(GL_COLOR_BUFFER_BIT);
         glfwPollEvents();
@@ -27,12 +29,25 @@ int main(){
             if(evt.type == MOUSEBUTTONDOWN){
                 MouseButtonEvent mevt = any_cast<MouseButtonEvent>(evt.value);
                 texpos = mevt.pos;
+            }else if(evt.type == KEYDOWN){
+                KeyEvent const& e{evt.v<KeyEvent>()};
+                if(e.is_key(GLFW_KEY_UP)){
+                    ++s;
+                }else if(e.is_key(GLFW_KEY_DOWN)){
+                    --s;
+                }else if(e.is_key(GLFW_KEY_T)){
+                    a = v_align::TOP;
+                }else if(e.is_key(GLFW_KEY_G)){
+                    a = v_align::CENTER;
+                }else if(e.is_key(GLFW_KEY_B)){
+                    a = v_align::BOTTOM;
+                }
             }
         }
         tt = u8"QWERTY CJK Test: 中日韩"sv;
         draw::rect({SCRCNTR-glm::vec2{5.0f},glm::vec2{10.0f}},CYAN);
         draw::linerect({SCRCNTR,win.mouse_pos()},12.0f);
-        draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),align::CENTER,v_align::CENTER);
+        draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),s,align::CENTER,a);
         win.swap_buffers();
     }
 }//RAII: Destroy allocated textures here, before quitting OpenGL.

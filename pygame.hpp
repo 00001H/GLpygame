@@ -17,7 +17,7 @@ namespace pygame{
         constexpr float HSW = SW/2.0f;
         constexpr float HSH = SH/2.0f;
         constexpr float half_pi = glm::half_pi<float>();
-        constexpr float pi = glm::pi<float>();
+        constexpr float pi = std::numbers::pi_v<float>;
         //https://xkcd.com/1292
         constexpr float pau = static_cast<float>(3.141592653589793l*1.5l);
         constexpr float tau = glm::two_pi<float>();

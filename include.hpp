@@ -3,11 +3,13 @@
 #include<unordered_map>
 #include<filesystem>
 #include<sys/stat.h>
+#include<functional>
 #include<stdexcept>
 #include<algorithm>
 #include<iostream>
 #include<optional>
-#include<cppp.hpp>
+#include<cppp/strings/strings.hpp>
+#include<cppp/binary/binary.hpp>
 #include<fstream>
 #include<string>
 #include<memory>
@@ -49,6 +51,9 @@ namespace pygame{
             constexpr Rect(Point pos, glm::vec2 dims) : loc(pos), _dims(dims){}
             const Point& ltop() const{
                 return loc;
+            }
+            Rect shrink(glm::vec2 by) const{
+                return {loc+by,_dims-by-by};
             }
             const Point& pos() const{
                 return loc;

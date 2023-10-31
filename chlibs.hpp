@@ -18,6 +18,7 @@ namespace pygame{
         sTexture tex;
         float xoffset;
         float ascent;
+        //NEGATIVE!!
         float descent;
         float distance;
         Ch_Texture(sTexture&& t) : tex(std::move(t)){}
@@ -59,9 +60,12 @@ namespace pygame{
             ~Font(){
                 destroy();
             }
-            float getHeight() const{
+            float get_height() const{
                 if(pimpl!=nullptr)return pimpl->getHeight();
                 else throw std::bad_optional_access();
+            }
+            float getHeight() const{
+                return get_height();
             }
             void set_dimensions(_ft::FT_UInt w,_ft::FT_UInt h){
                 if(pimpl!=nullptr)pimpl->set_dimensions(w,h);

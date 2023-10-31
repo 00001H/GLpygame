@@ -28,7 +28,7 @@ namespace pygame{
             GLuint renderbuf=-1;
         public:
             Renderbuffer(const Renderbuffer&) = delete;
-            Renderbuffer(GLenum fmt,GLsizei w,GLsizei h){
+            Renderbuffer(GLenum fmt,size_t w,size_t h){
                 glGenRenderbuffers(1,&renderbuf);
                 glBindRenderbuffer(GL_RENDERBUFFER,renderbuf);
                 glRenderbufferStorage(GL_RENDERBUFFER,fmt,w,h);
@@ -94,10 +94,15 @@ namespace pygame{
                 glBindFramebuffer(target,0);
             }
     };
+    GLuint loadpsource(std::u8string_view vs,std::u8string_view fs);
     GLuint loadprogram(std::u8string_view vs,std::u8string_view fs);
     struct Shader{
         GLuint program=-1;
         mutable std::unordered_map<std::string,GLint> locations;
+        void update(GLuint newprg){
+            program = newprg;
+            locations.clear();
+        }
         GLint getLocation(const char* location) const{
             if(locations.count(location)==0){
                 locations.emplace(location,glGetUniformLocation(program,location));
@@ -264,23 +269,20 @@ namespace pygame{
         LEFT,CENTER,RIGHT
     };
     enum class v_align{
-        TOP,BASELINE,CENTER,BOTTOM
+        TOP,CENTER,BOTTOM
     };
     Rect get_text_rect(Font& font,const cppp::codepoints& cps,const Point& position,
                    align algn=align::LEFT,v_align valgn=v_align::TOP,
         float* masc=nullptr,float* mdsc=nullptr);
     inline Rect get_text_rect(Font& font,std::u8string_view text,const Point& position,
-                   align algn=align::LEFT,v_align valgn=v_align::TOP){
-        return get_text_rect(font,cppp::codepoints_of(text),position,algn,valgn);
+                   align algn=align::LEFT,v_align valgn=v_align::TOP,
+        float* masc=nullptr,float* mdsc=nullptr){
+        return get_text_rect(font,cppp::codepoints_of(text),position,algn,valgn,
+            masc,mdsc);
     }
-    Rect draw_singleline_text(Font& font,const cppp::codepoints& cps,const Point& position,
-                   const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP);
-    inline Rect draw_singleline_text(Font& font,std::u8string_view text,const Point& position,
-                   const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP){
-        return draw_singleline_text(font,cppp::codepoints_of(text),position,color,algn,valgn);
-    }
-    Rect draw_text(Font& font,std::u8string_view text,const Point& position,
-                   const Color& color={1.0f,1.0f,1.0f,1.0},align algn=align::LEFT,v_align valgn=v_align::TOP,bool do_render=true);
+    void draw_text(Font& font,std::u8string_view text,const Point& position,
+                   const Color& color={1.0f,1.0f,1.0f,1.0},float size=1.0f,
+                   align algn=align::LEFT, v_align valgn=v_align::TOP);
     namespace draw{
         inline void rect(Rect in,Color color,float rot=0.0f,Shader& shader=single_color_shader){
             shader.use();

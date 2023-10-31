@@ -74,7 +74,7 @@ int main(){
     pygame::init();
 {
     Chlib &charlib = pygame::chlib;
-    pygame::glVer(4,6);
+    pygame::gl_ver(4,6);
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_DEBUG_CONTEXT);
     Window win{1600,900,u8"3D Test"sv};
@@ -83,7 +83,7 @@ int main(){
     glDisable(GL_CULL_FACE);
     #if GL_DEBUG_CONTEXT
     glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); 
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(glDebugOutput, nullptr);
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
     #endif

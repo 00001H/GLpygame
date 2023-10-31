@@ -1,6 +1,6 @@
 #include"glfwPygame.hpp"
 namespace pygame{
-    void glVer(int mjr,int mnr,bool core){
+    void gl_ver(int mjr,int mnr,bool core){
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,mjr);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,mnr);
         glfwWindowHint(GLFW_OPENGL_PROFILE,core?GLFW_OPENGL_CORE_PROFILE:GLFW_OPENGL_COMPAT_PROFILE);

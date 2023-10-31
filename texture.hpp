@@ -79,26 +79,20 @@ namespace pygame{
             float width() const{
                 return _width;
             }
-            [[deprecated("Use snake_case instead")]] float getWidth() const{
-                return width();
+            size_t iwidth() const{
+                return _width;
             }
             float height() const{
                 return _height;
             }
-            [[deprecated("Use snake_case instead")]] float getHeight() const{
-                return height();
+            size_t iheight() const{
+                return _height;
             }
             glm::vec2 size() const{
                 return {_width,_height};
             }
-            [[deprecated("Use snake_case instead")]] glm::vec2 getSize() const{
-                return size();
-            }
             float scale_to_fit(float side_length) const{
                 return side_length/glm::max(width(),height());
-            }
-            [[deprecated("Use snake_case instead")]] float scalingToFitInside(float side_length) const{
-                return scale_to_fit(side_length);
             }
             auto handle() const{
                 if(!resident){
@@ -109,14 +103,8 @@ namespace pygame{
                 }
                 return texturehandle;
             }
-            [[deprecated("Use snake_case instead")]] auto getHandle() const{
-                return handle();
-            }
             auto id() const{
                 return texture;
-            }
-            [[deprecated("Use snake_case instead")]] auto getId() const{
-                return id();
             }
             void destroy(){
                 if(!placeholder){

@@ -7,7 +7,7 @@ namespace pygame{
         bool _is_init=false;
     }
     void drawInit();
-    void glVer(int mjr,int mnr,bool core=true);
+    void gl_ver(int mjr,int mnr,bool core=true);
     namespace event{
         enum{
             MOUSEMOTION=0xfa01,MOUSEBUTTONDOWN=0xfa02,MOUSEBUTTONUP=0xfa03,
@@ -59,7 +59,7 @@ namespace pygame{
             cppp::codepoint ch;
             TextEvent(cppp::codepoint c) : ch(c){}
             void apply(std::u8string& s) const{
-                cppp::appendCodepointToString(ch,s);
+                cppp::append_codepoint_to_string(ch,s);
             }
         };
     }
@@ -142,7 +142,7 @@ namespace pygame{
                 }
                 Window(const Window&) = delete;
                 Window& operator=(const Window&) = delete;
-                Window(GLsizei width,GLsizei height,std::u8string_view title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
+                Window(size_t width,size_t height,std::u8string_view title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
                 win(glfwCreateWindow(width,height,cppp::copy_as_plain(title).c_str(),monitor,share)),
                 fbcbf(_restore),
                 fullscreen_monitor((monitor==nullptr)?glfwGetPrimaryMonitor():monitor),
