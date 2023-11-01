@@ -1,8 +1,8 @@
 #ifndef CHLIBS_H
 #define CHLIBS_H
 #include"include.hpp"
-#include"texture.hpp"
 namespace pygame{
+    using namespace std::literals;
     namespace _ft{
         #include<ft2build.h>
         #include FT_FREETYPE_H
@@ -30,7 +30,8 @@ namespace pygame{
         public:
             _ft::FT_Face face;
             int _id;
-            std::unordered_map<cppp::codepoint,Ch_Texture> charmap;
+            using cm_t = std::unordered_map<cppp::codepoint,Ch_Texture>;
+            std::unordered_map<Window*,cm_t> charmap;
             void set_dimensions(_ft::FT_UInt w,_ft::FT_UInt h){
                 _ft::FT_Set_Pixel_Sizes(face,w,h);
                 charmap.clear();
@@ -38,7 +39,7 @@ namespace pygame{
             float getHeight() const{
                 return float(face->size->metrics.height)/64.0f;
             }
-            char_tex loadChar(cppp::codepoint ch);
+            char_tex loadChar(Window& w,cppp::codepoint ch);
             void done(){
                 FT_Done_Face(face);
             }
@@ -77,8 +78,8 @@ namespace pygame{
                     pimpl = nullptr;
                 }
             }
-            char_tex loadChar(cppp::codepoint ch){
-                if(pimpl!=nullptr)return pimpl->loadChar(ch);
+            char_tex loadChar(Window& w,cppp::codepoint ch){
+                if(pimpl!=nullptr)return pimpl->loadChar(w,ch);
                 else throw std::bad_optional_access();
             }
     };

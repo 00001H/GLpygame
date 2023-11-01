@@ -31,6 +31,7 @@ namespace pygame{
     using glm::vec4;
     typedef vec2 Point;
     typedef vec4 Color;
+    class Window;
     struct Line{
         Point a;
         Point b;
@@ -130,5 +131,9 @@ namespace pygame{
                     &&(point.y>top()));//bottomer than top
             }
     };
+    class Texture;
+    using mpTexture = Texture*;
+    using pTexture = const Texture*;
+    using sTexture = std::unique_ptr<Texture>;
 }
 #endif

@@ -4,7 +4,7 @@
 		{
 			"label": "Compile",
 			"type": "shell",
-			"command": "g++ \"${fileDirname}\\${fileBasename}\" -o \"${fileDirname}\\${fileBasenameNoExtension}.exe\" -std=c++23 %default_gcc_args% -I\"C:/GL/include\" -I\"E:/include\" -L\"E:/libs\" %glpy_deplnk% -lpygame -lstrs -lbin -lcoll",
+			"command": "make -j11 2ddemo.exe",
 			"problemMatcher": [{
 				"owner": "cpp",
 				"fileLocation": "autoDetect",
@@ -46,7 +46,7 @@
 		{
 			"label": "Run",
 			"type": "shell",
-			"command": "cd ${fileDirname} && ${fileDirname}\\${fileBasenameNoExtension}.exe",
+			"command": "cd E:\\GLpygame && 2ddemo",
 			"problemMatcher": []
 		},
 		{
@@ -62,8 +62,44 @@
 		{
 			"label": "Build lib",
 			"type": "shell",
-			"command": "g++ -c chlibs.cpp fileutils.cpp glfwPygame.cpp gsdl.cpp postp.cpp pygame.cpp -std=c++23 %default_gcc_args% -I\"C:/GL/include\" -I\"E:/include\" && ar rcs pygame.a chlibs.o fileutils.o glfwPygame.o gsdl.o postp.o pygame.o && move pygame.a E:/libs/libpygame.a && del *.o",
-			"problemMatcher": []
+			"command": "make -j11",
+			"problemMatcher": [{
+				"owner": "cpp",
+				"fileLocation": "autoDetect",
+				"pattern": {
+					"regexp": "^(.*):(\\d+):(\\d+):\\s+(note|warning|error):\\s+(.*)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"severity": 4,
+					"message": 5
+				},
+				"severity": "info",
+				"source": "Compiler"
+			},{
+				"owner": "cpp",
+				"fileLocation": "autoDetect",
+				"pattern": {
+					"regexp": "^(.*):(\\d+):(\\d+):\\s+(.*)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"message": 4
+				},
+				"severity": "info",
+				"source": "Compiler"
+			},
+			{
+				"owner": "cpp",
+				"fileLocation": "autoDetect",
+				"pattern": {
+					"regexp": "^.*ld.exe: .*?:.*?:(.*?):.*?: (.*)$",
+					"file": 1,
+					"message": 2
+				},
+				"severity": "info",
+				"source": "Linker"
+			}]
 		}
 	]
 }

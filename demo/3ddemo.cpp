@@ -11,7 +11,7 @@ using pygame::display::Window;
 using std::cout;
 using std::cin;
 using std::endl;
-void APIENTRY glDebugOutput(GLenum,GLenum,unsigned int,GLenum,GLsizei,const char*,const void*);
+void APIENTRY dbgout(GLenum,GLenum,unsigned int,GLenum,GLsizei,const char*,const void*);
 class CubeObject{
     public:
         float yaccel = 0.0f;
@@ -71,7 +71,6 @@ std::u8string seltex(int i){
     return subst(u8"|$ $ $|"sv,{a,b,c});
 }
 int main(){
-    pygame::init();
 {
     Chlib &charlib = pygame::chlib;
     pygame::gl_ver(4,6);
@@ -80,20 +79,20 @@ int main(){
     Window win{1600,900,u8"3D Test"sv};
     win.set_as_OpenGL_target();
     pygame::setup_template_0();
-    glDisable(GL_CULL_FACE);
+    gl_call(glDisable,GL_CULL_FACE);
     #if GL_DEBUG_CONTEXT
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(glDebugOutput, nullptr);
-    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    gl_call(glEnable,GL_DEBUG_OUTPUT);
+    gl_call(glEnable,GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    gl_call(glDebugMessageCallback,dbgout, nullptr);
+    gl_call(glDebugMessageControl,GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
     #endif
     Font& DEFAULT_FONT = charlib.loadfont(u8"Cnew"s,u8"rsrc/courier_new.ttf"s);
     DEFAULT_FONT.set_dimensions(0,45);
-    sTexture fteximg{loadTexture2D(u8"demorsrc/checkers.png"s)};
-    sTexture tex{loadTexture2D(u8"demorsrc/a.png"s)};
-    sTexture tex2{loadTexture2D(u8"demorsrc/b.png"s)};
-    sTexture tex3{loadTexture2D(u8"demorsrc/c.png"s)};
-    sTexture pp{loadTexture2D(u8"demorsrc/p.png"s)};
+    sTexture fteximg{load_texture(u8"demorsrc/checkers.png"s)};
+    sTexture tex{load_texture(u8"demorsrc/a.png"s)};
+    sTexture tex2{load_texture(u8"demorsrc/b.png"s)};
+    sTexture tex3{load_texture(u8"demorsrc/c.png"s)};
+    sTexture pp{load_texture(u8"demorsrc/p.png"s)};
     CubeTexture ctex{*tex};
     CubeTexture ptex{*pp};
     ctex.left = *tex2;
@@ -113,7 +112,7 @@ int main(){
     bool cur_grab=true;
     glm::dvec2 lastpos,cupos,dist;
     lastpos = win.mouse_pos();
-    glClearColor(0.0f,0.5f,0.75f,1.0f);
+    gl_call(glClearColor,0.0f,0.5f,0.75f,1.0f);
     vector<CubeObject> objects;
     CubeObject cube1(ctx,Cube(glm::vec3(0.0f),{1.0f,2.0f,1.0f}),ctex);
     CubeObject cube2(ctx,Cube({10.0f,0.0f,6.0f},{1.0f,3.0f,1.0f}),ctex);
@@ -223,9 +222,9 @@ int main(){
             }
         }
         lastpos = cupos;
-        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+        gl_call(glClear,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
         scene.bind(true);
-        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+        gl_call(glClear,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
         pygame::draw::cube(ctx,floorcube,floortex);
         pygame::draw::cube(ctx,pole,ptex);
         for(CubeObject& p : objects){
@@ -271,7 +270,7 @@ int main(){
     pygame::quit();
     return 0;
 }
-void APIENTRY glDebugOutput(GLenum source,GLenum type,uint32_t id,GLenum severity, GLsizei,const char* message,const void*){
+void APIENTRY dbgout(GLenum source,GLenum type,uint32_t id,GLenum severity, GLsizei,const char* message,const void*){
     // ignore non-significant error/warning codes
     if(id == 131169 || id == 131185 || id == 131218 || id == 131204) return; 
 
