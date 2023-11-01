@@ -142,7 +142,7 @@ namespace pygame{
                 }
                 Window(const Window&) = delete;
                 Window& operator=(const Window&) = delete;
-                Window(size_t width,size_t height,std::u8string_view title,GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
+                Window(size_t width,size_t height,std::u8string_view title={u8""},GLFWmonitor *monitor=nullptr,GLFWwindow *share=NULL) :
                 win(glfwCreateWindow(width,height,cppp::copy_as_plain(title).c_str(),monitor,share)),
                 fbcbf(_restore),
                 fullscreen_monitor((monitor==nullptr)?glfwGetPrimaryMonitor():monitor),
