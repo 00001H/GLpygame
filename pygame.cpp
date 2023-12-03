@@ -31,7 +31,7 @@ namespace pygame{
                 visibility = 1-((frame-stayframes-inframes)/outframes);
             }
             tex.alpha() = visibility;
-            w.blit(tex,middle,size);
+            w.blit(tex,middle,{size,size});
             w.swap_buffers();
             if(frame>(inframes+stayframes+outframes))break;
             clok.tick(FPS);

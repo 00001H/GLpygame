@@ -1,4 +1,3 @@
-#ifndef PYGAME_NO3D
 #ifndef PYGAME_3DG
 #define PYGAME_3DG
 #include"include.hpp"
@@ -153,5 +152,4 @@ namespace pygame{
             }
     };
 }
-#endif
 #endif

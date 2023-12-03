@@ -27,5 +27,5 @@ void main(){
         gl_Position = vec4(poss.x/hsw-1.0,-poss.y/hsh+1.0,0.0,1.0);
     }
     vec2 ftc = (flipv?pos:vec2(pos.x,1.0-pos.y));
-    texc = ftc*(region.zw-region.xy)+region.xy;
+    texc = mix(region.xy,region.zw,ftc);
 }

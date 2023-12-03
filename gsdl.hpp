@@ -130,6 +130,9 @@ namespace pygame{
             float height() const{
                 return tex->height();
             }
+            glm::vec2 dims() const{
+                return tex->size();
+            }
             float& alpha(){
                 return a;
             }
@@ -146,7 +149,6 @@ namespace pygame{
                 return tex;
             }
     };
-#ifndef PYGAME_NO3D
     struct CubeTexture{
         public:
             zTexture front;
@@ -159,7 +161,6 @@ namespace pygame{
             front(face),back(face),top(face),bottom(face),
             left(face),right(face){}
     };
-#endif
     sTexture load_texture(Window& w,std::u8string filename);
     using namespace std::literals;
     class Shader;
@@ -173,15 +174,32 @@ namespace pygame{
     enum class v_align{
         TOP,CENTER,BOTTOM
     };
-    Rect get_text_rect(Font& font,const cppp::codepoints& cps,const Point& position,
-                   align algn=align::LEFT,v_align valgn=v_align::TOP,
-        float* masc=nullptr,float* mdsc=nullptr);
-    inline Rect get_text_rect(Font& font,std::u8string_view text,const Point& position,
-                align algn=align::LEFT,v_align valgn=v_align::TOP,
-        float* masc=nullptr,float* mdsc=nullptr){
-        return get_text_rect(font,cppp::codepoints_of(text),position,algn,valgn,
-            masc,mdsc);
-    }
+    class LineMetrics{
+        float width;
+        float max_ascent;
+        //NEGATIVE!!
+        float min_descent;
+        public:
+            constexpr LineMetrics(float w,float ma,float md) : width(w), max_ascent(ma),
+            min_descent(md){}
+            float w() const{
+                return width;
+            }
+            float h() const{
+                return max_ascent-min_descent;
+            }
+            float asc() const{
+                return max_ascent;
+            }
+            float adsc() const{
+                return -min_descent;
+            }
+            float dsc() const{
+                return min_descent;
+            }
+    };
+    LineMetrics get_line_metrics(Font&,const cppp::codepoints&);
+    glm::vec2 get_text_dims(Font&,const cppp::codepoints&,float* asc=nullptr,bool=false);
     namespace time{
         class Clock{
             private:
@@ -211,11 +229,10 @@ namespace pygame{
     }//namespace time;
     void gl_ver(int mjr,int mnr,bool core=true);
     namespace event{
-        enum{
+        enum EventType{
             MOUSEMOTION=0xfa01,MOUSEBUTTONDOWN=0xfa02,MOUSEBUTTONUP=0xfa03,
             KEYDOWN=0xfb01,KEYUP=0xfb02,KEYREPEAT=0xfb03,TEXT=0xfb10,USEREVT=0xff00,
         };
-        using EventType = decltype(MOUSEMOTION);
         struct Event{
             int type;
             std::any value;
@@ -275,6 +292,9 @@ namespace pygame{
             }
         }
         public:
+            GLuint glprog() const{
+                return program;
+            }
             void set_render_rect(float xmax,float ymax){
                 u1f("hsw",xmax/2.0f);
                 u1f("hsh",ymax/2.0f);
@@ -444,25 +464,45 @@ namespace pygame{
         mutable bool closed=false;
         float aspect;
         std::vector<std::function<void()>> atd;
+        std::unordered_map<std::u8string,Shader> extsh;
+        std::unordered_map<std::u8string,DrawBuffer> extdb;
         public:
+            Shader& addsh(std::u8string_view s){
+                return extsh.try_emplace(std::u8string(s),*this).first->second;
+            }
+            bool hassh(std::u8string_view s) const{
+                return extsh.contains(std::u8string(s));
+            }
+            Shader& getsh(std::u8string_view s){
+                return extsh.at(std::u8string(s));
+            }
+            DrawBuffer& adddb(std::u8string_view s){
+                return extdb.try_emplace(std::u8string(s),*this).first->second;
+            }
+            bool hasdb(std::u8string_view s) const{
+                return extdb.contains(std::u8string(s));
+            }
+            DrawBuffer& getdb(std::u8string_view s){
+                return extdb.at(std::u8string(s));
+            }
             DrawBuffer fill_db,texture_db,rect_db,colored_polygon_db,
-            #ifndef PYGAME_NO3D
             texture_3d_db;
-            #endif
             Shader texture_shader,text_shader,fill_shader,single_color_shader;
-            #ifndef PYGAME_NO3D
             Shader texture_3d_shader;
-            #endif
-            template<typename F>
+        template<cppp::function_type<void> F>
             void atdone(F&& f){
                 atd.emplace_back(std::forward<F>(f));
+            }
+            void fill(Color c){
+                gl_call(glClearColor,c.r,c.g,c.b,c.a);
+                gl_call(glClear,GL_COLOR_BUFFER_BIT);
             }
             void draw_text(Font& font,std::u8string_view text,const Point& position,
                         const Color& color={1.0f,1.0f,1.0f,1.0},float size=1.0f,
                         align algn=align::LEFT, v_align valgn=v_align::TOP);
             template<typename Fp,typename ...A>
-            std::invoke_result_t<Fp,A...> gl_call(Fp fun,A&& ...ca){
-                set_as_OpenGL_target();
+            inline std::invoke_result_t<Fp,A...> gl_call(Fp fun,A&& ...ca){
+                if(gl_context!=this)set_as_OpenGL_target();
                 return fun(std::forward<A>(ca)...);
             }
             Rect aspected_viewport(int winwi,int winht,float aspect){
@@ -488,12 +528,10 @@ namespace pygame{
                 gl_call(glDrawArrays,drawmode,0,vert_cnt);
             }
             void linerect(Line in,float thickness,Color color={1.0f,1.0f,1.0f,1.0f},Shader* shader=nullptr);
-            #ifndef PYGAME_NO3D
             void rect3D_nb_nm(const Rect3D& in,const zTexture& texture);
             void rect3D(const Context3D& context,const Rect3D& in,const zTexture& texture);
             void cube(const Context3D& context,const Cube& in,const CubeTexture& textures);
-            #endif
-            void blit(const zTexture& image,const Point& location,float size=1.0f,float rotation=0.0f,
+            void blit(const zTexture& image,const Point& location,glm::vec2 size={1.0f,1.0f},float rotation=0.0f,
             const glm::vec4&rgn={0.0f,0.0f,1.0f,1.0f},Shader* shader=nullptr,bool flipv=true);
             void set_render_rect(float xmax,float ymax){
                 texture_shader.set_render_rect(xmax,ymax);
@@ -527,14 +565,10 @@ namespace pygame{
             displayframe({0.0f,0.0f},{sw,sh}), aspect(float(width)/float(height)),
             fill_db(*this), texture_db(*this), rect_db(*this),
             colored_polygon_db(*this),
-            #ifndef PYGAME_NO3D
             texture_3d_db(*this),
-            #endif
             texture_shader(*this), text_shader(*this), fill_shader(*this),
             single_color_shader(*this)
-            #ifndef PYGAME_NO3D
             ,texture_3d_shader(*this)
-            #endif
             {
                 static bool loaded=false;
                 auto ogc{gl_context};

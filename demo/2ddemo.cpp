@@ -13,21 +13,21 @@ int main(){
     gl_ver(4,6);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,true);
     Window w{800,600,u8"this is a title"sv};
-    cppp::fcout << "Meep" << std::endl;
     w.gl_call(glViewport,0,0,800,600);
     w.gl_call(glEnable,GL_DEBUG_OUTPUT);
     w.gl_call(glEnable,GL_DEBUG_OUTPUT_SYNCHRONOUS);
     w.gl_call(glDebugMessageCallback,dbgout,nullptr);
     w.gl_call(glDebugMessageControl,GL_DONT_CARE,GL_DONT_CARE,GL_DONT_CARE,0,nullptr,GL_TRUE);
     w.init();
+    setup_template_0(w);
     Font& DEFAULT_FONT = pygame::chlib.loadfont(u8"StSong"s,u8"demorsrc/st_song.ttf"s);
     DEFAULT_FONT.set_dimensions(0,60);
-    setup_template_0(w);
     Point texpos = {30.0f,32.0f};
     std::u8string tt;
     w.gl_call(glClearColor,0.0f,0.5f,0.75f,1.0f);
     float s{1.0f};
     v_align a{v_align::TOP};
+    Line dm{{345.0f,234.0f},{244.0f,300.0f}};
     while(!w.should_close()){
         w.gl_call(glClear,GL_COLOR_BUFFER_BIT);
         glfwPollEvents();
@@ -52,7 +52,9 @@ int main(){
         }
         tt = u8"QWERTY CJK Test: 中日韩"sv;
         w.rect({SCRCNTR-glm::vec2{5.0f},glm::vec2{10.0f}},CYAN);
+        w.rect({{0.0f,0.0f},w.mouse_pos()/3.0f},CYAN);
         w.linerect({SCRCNTR,w.mouse_pos()},12.0f);
+        w.linerect(dm,10.0f,dm.above_point(w.mouse_pos())?GREEN:RED);
         w.draw_text(DEFAULT_FONT,tt,texpos,Color(1.0f),s,align::CENTER,a);
         w.swap_buffers();
     }

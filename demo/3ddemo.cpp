@@ -7,7 +7,7 @@ using std::any_cast;
 using namespace pygame;
 using namespace pygame::event;
 using namespace pygame::constants;
-using pygame::display::Window;
+using pygame::Window;
 using std::cout;
 using std::cin;
 using std::endl;
@@ -19,8 +19,8 @@ class CubeObject{
         Cube cbe;
         CubeTexture tex;
         CubeObject(const Context3D& cc,Cube c,CubeTexture t) : ctx(cc),cbe(c),tex(t) {}
-        void draw() const{
-            pygame::draw::cube(ctx,cbe,tex);
+        void draw(Window& w) const{
+            w.cube(ctx,cbe,tex);
         }
 };
 const float PLAYER_REACH = 3.0;
@@ -42,7 +42,7 @@ float inline constexpr modudist(float x,float y,float mod){
 }
 static_assert(modudist(0,10,11)==1);
 
-#define GL_DEBUG_CONTEXT false
+#define GL_DEBUG_CONTEXT true
 std::u8string surr(bool apply, std::u8string inside){
     if(apply)return u8'['+inside+u8']';
     return u8' '+inside+u8' ';
@@ -73,26 +73,27 @@ std::u8string seltex(int i){
 int main(){
 {
     Chlib &charlib = pygame::chlib;
+    glfwInit();
     pygame::gl_ver(4,6);
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT,GL_DEBUG_CONTEXT);
-    Window win{1600,900,u8"3D Test"sv};
-    win.set_as_OpenGL_target();
-    pygame::setup_template_0();
-    gl_call(glDisable,GL_CULL_FACE);
+    Window w{1600,900,u8"3D Test"sv};
+    w.init();
+    pygame::setup_template_0(w);
+    // w.gl_call(glDisable,GL_CULL_FACE);
     #if GL_DEBUG_CONTEXT
-    gl_call(glEnable,GL_DEBUG_OUTPUT);
-    gl_call(glEnable,GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    gl_call(glDebugMessageCallback,dbgout, nullptr);
-    gl_call(glDebugMessageControl,GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    w.gl_call(glEnable,GL_DEBUG_OUTPUT);
+    w.gl_call(glEnable,GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    w.gl_call(glDebugMessageCallback,dbgout, nullptr);
+    w.gl_call(glDebugMessageControl,GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
     #endif
     Font& DEFAULT_FONT = charlib.loadfont(u8"Cnew"s,u8"rsrc/courier_new.ttf"s);
     DEFAULT_FONT.set_dimensions(0,45);
-    sTexture fteximg{load_texture(u8"demorsrc/checkers.png"s)};
-    sTexture tex{load_texture(u8"demorsrc/a.png"s)};
-    sTexture tex2{load_texture(u8"demorsrc/b.png"s)};
-    sTexture tex3{load_texture(u8"demorsrc/c.png"s)};
-    sTexture pp{load_texture(u8"demorsrc/p.png"s)};
+    sTexture fteximg{load_texture(w,u8"demorsrc/checkers.png"s)};
+    sTexture tex{load_texture(w,u8"demorsrc/a.png"s)};
+    sTexture tex2{load_texture(w,u8"demorsrc/b.png"s)};
+    sTexture tex3{load_texture(w,u8"demorsrc/c.png"s)};
+    sTexture pp{load_texture(w,u8"demorsrc/p.png"s)};
     CubeTexture ctex{*tex};
     CubeTexture ptex{*pp};
     ctex.left = *tex2;
@@ -102,17 +103,17 @@ int main(){
     CubeTexture floortex{*fteximg};
     Cube floorcube{{-25.0f,-1.0f,-25.0f},{50.0f,1.0f,50.0f}};
     Cube pole{{-0.1f,0.0f,-0.1f},{0.2f,1.0f,0.2f}};
-    Context3D ctx{Camera(glm::vec3(2.0f,4.0f,7.0f)),glm::radians(70.0f),0.1f,100.0f,float(win.width())/float(win.height())};
+    Context3D ctx{Camera(glm::vec3(2.0f,4.0f,7.0f)),glm::radians(70.0f),0.1f,100.0f,float(w.width())/float(w.height())};
     YPR& cam_ang = ctx.camera.angles;
     glm::vec3& cam_pos = ctx.camera.pos;
     cam_ang.pitch = 0.0f;
     cam_ang.yaw = -half_pi;
-    glfwFocusWindow(win.glfw_handle());
-    glfwSetInputMode(win.glfw_handle(),GLFW_CURSOR,GLFW_CURSOR_DISABLED);
+    glfwFocusWindow(w.glfw_handle());
+    glfwSetInputMode(w.glfw_handle(),GLFW_CURSOR,GLFW_CURSOR_DISABLED);
     bool cur_grab=true;
     glm::dvec2 lastpos,cupos,dist;
-    lastpos = win.mouse_pos();
-    gl_call(glClearColor,0.0f,0.5f,0.75f,1.0f);
+    lastpos = w.mouse_pos();
+    w.gl_call(glClearColor,0.0f,0.5f,0.75f,1.0f);
     vector<CubeObject> objects;
     CubeObject cube1(ctx,Cube(glm::vec3(0.0f),{1.0f,2.0f,1.0f}),ctex);
     CubeObject cube2(ctx,Cube({10.0f,0.0f,6.0f},{1.0f,3.0f,1.0f}),ctex);
@@ -121,7 +122,7 @@ int main(){
     objects.push_back(cube2);
     float player_yaccel=0.0f;
     float mind = 0.0f;
-    Scene scene{1920,1080};
+    Scene scene{w,1920,1080};
     std::u8string kr0,kr1,kr2;
     std::array<int,12> krlis;
     krlis.fill(0);
@@ -130,19 +131,19 @@ int main(){
     krlis[7] = 8;
     krlis[8] = 1;
     int mmsel=3;
-    while(!win.should_close()){
+    while(!w.should_close()){
         glfwPollEvents();
-        for(Event evt : win.eventqueue.get()){
+        for(Event evt : w.eventqueue.get()){
             if(evt.type == MOUSEBUTTONDOWN){
                 MouseButtonEvent mevt = any_cast<MouseButtonEvent>(evt.value);
                 if(mevt.btn==0){
-                    glfwSetInputMode(win.glfw_handle(),GLFW_CURSOR,GLFW_CURSOR_DISABLED);
+                    glfwSetInputMode(w.glfw_handle(),GLFW_CURSOR,GLFW_CURSOR_DISABLED);
                     cur_grab=true;
                 }
             }
             if(evt.type == KEYUP){
                 if(any_cast<KeyEvent>(evt.value).glfw_key == GLFW_KEY_ESCAPE){
-                    glfwSetInputMode(win.glfw_handle(),GLFW_CURSOR,GLFW_CURSOR_NORMAL);
+                    glfwSetInputMode(w.glfw_handle(),GLFW_CURSOR,GLFW_CURSOR_NORMAL);
                     cur_grab=false;
                 }
             }
@@ -169,9 +170,9 @@ int main(){
                         if(mmsel>=12)mmsel=11;
                     }
                 }else if(key == GLFW_KEY_T){
-                    krlis[mmsel] += 1+win.get_key(GLFW_KEY_LEFT_SHIFT)*4;
+                    krlis[mmsel] += 1+w.get_key(GLFW_KEY_LEFT_SHIFT)*4;
                 }else if(key == GLFW_KEY_G){
-                    krlis[mmsel] -= 1+win.get_key(GLFW_KEY_LEFT_SHIFT)*4;
+                    krlis[mmsel] -= 1+w.get_key(GLFW_KEY_LEFT_SHIFT)*4;
                     if((mmsel==7||mmsel==8)&&krlis[mmsel]<1)krlis[mmsel]=1;
                 }else if(key == GLFW_KEY_E){
                     if(!cur_grab);
@@ -205,7 +206,7 @@ int main(){
                 }
             }
         }
-        cupos = win.mouse_pos();
+        cupos = w.mouse_pos();
         if(cur_grab){
             dist = cupos-lastpos;
             cam_ang.pitch += dist.y*CAMSENSIT;
@@ -213,8 +214,8 @@ int main(){
             while(cam_ang.yaw>tau)cam_ang.yaw-=tau;
             while(cam_ang.yaw<0.0f)cam_ang.yaw+=tau;
             cam_ang.pitch = std::clamp(cam_ang.pitch,-half_pi,half_pi);
-            cam_pos += cam_ang.ywfront()*CAMSPD*static_cast<float>(win.get_key(GLFW_KEY_W)-win.get_key(GLFW_KEY_S));
-            cam_pos += cam_ang.ywright()*CAMSPD*static_cast<float>(win.get_key(GLFW_KEY_D)-win.get_key(GLFW_KEY_A));
+            cam_pos += cam_ang.ywfront()*CAMSPD*static_cast<float>(w.get_key(GLFW_KEY_W)-w.get_key(GLFW_KEY_S));
+            cam_pos += cam_ang.ywright()*CAMSPD*static_cast<float>(w.get_key(GLFW_KEY_D)-w.get_key(GLFW_KEY_A));
             if(grabbing!=nullptr){
                 grabbing->cbe.set_center(cam_pos+cam_ang.direction()*PLAYER_REACH);
                 grabbing->cbe.pos().y = std::max(grabbing->cbe.pos().y,0.0f);
@@ -222,13 +223,13 @@ int main(){
             }
         }
         lastpos = cupos;
-        gl_call(glClear,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+        w.gl_call(glClear,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
         scene.bind(true);
-        gl_call(glClear,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-        pygame::draw::cube(ctx,floorcube,floortex);
-        pygame::draw::cube(ctx,pole,ptex);
+        w.gl_call(glClear,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+        w.cube(ctx,floorcube,floortex);
+        w.cube(ctx,pole,ptex);
         for(CubeObject& p : objects){
-            p.draw();
+            p.draw(w);
             p.cbe.a().yaw += 0.08f;
         }
         if(cur_grab){
@@ -252,19 +253,19 @@ int main(){
             cam_pos.y += player_yaccel;
         }
         for(int i=0;i<krlis[8];++i){
-            scene.applyKernel(pygame::Kernal{krlis[0],krlis[1],krlis[2],krlis[3],krlis[4],krlis[5],krlis[9],krlis[10],krlis[11]}/float(krlis[7]),float(krlis[6])/1000.0f);
+            scene.apply_kernel(pygame::Kernal{krlis[0],krlis[1],krlis[2],krlis[3],krlis[4],krlis[5],krlis[9],krlis[10],krlis[11]}/float(krlis[7]),float(krlis[6])/1000.0f);
         }
-        scene.draw({0.0f,0.0f},win.width(),win.height());
-        pygame::draw_text(DEFAULT_FONT,u8"GLpygame 3D demo(ver.0226rc1) all pasterights reserved"sv,{10.0f,10.0f});
-        pygame::draw_text(DEFAULT_FONT,dumppos(cam_pos),{10.0f,50.0f});
+        scene.draw({0.0f,0.0f},w.width(),w.height());
+        w.draw_text(DEFAULT_FONT,u8"GLpygame 3D demo(ver.0226rc1) all pasterights reserved"sv,{10.0f,10.0f});
+        w.draw_text(DEFAULT_FONT,dumppos(cam_pos),{10.0f,50.0f});
         kr0 = subst(seltex(mmsel),{krlis[0],krlis[1],krlis[2]});
         kr1 = subst(seltex(mmsel-3),{krlis[3],krlis[4],krlis[5]})+u8'/'+surr(mmsel==6,cppp::to_u8string(krlis[6]))+surr(mmsel==7,cppp::to_u8string(krlis[7]))+u8' '+surr(mmsel==8,cppp::to_u8string(krlis[8]));
         kr2 = subst(seltex(mmsel-9),{krlis[9],krlis[10],krlis[11]});
-        pygame::draw_text(DEFAULT_FONT,kr0,{30.0f,125.0f});
-        pygame::draw_text(DEFAULT_FONT,kr1,{30.0f,175.0f});
-        pygame::draw_text(DEFAULT_FONT,kr2,{30.0f,225.0f});
-        pygame::draw::rect(Rect({SCRCNTR-glm::vec2(12.0f,12.0f)},{24.0f,24.0f}),GREEN);
-        win.swap_buffers();
+        w.draw_text(DEFAULT_FONT,kr0,{30.0f,125.0f});
+        w.draw_text(DEFAULT_FONT,kr1,{30.0f,175.0f});
+        w.draw_text(DEFAULT_FONT,kr2,{30.0f,225.0f});
+        w.rect(Rect({SCRCNTR-glm::vec2(12.0f,12.0f)},{24.0f,24.0f}),GREEN);
+        w.swap_buffers();
     }
 }//RAII: Destroy allocated textures here, before quitting OpenGL.
     pygame::quit();

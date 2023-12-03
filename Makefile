@@ -11,6 +11,9 @@ clean: cleanobj
 %.o: %.cpp $(HEADERS)
 	g++ -c $< $(COMPOPT)
 2ddemo.exe: demo/2ddemo.cpp libpygame.a
-	g++ $< libpygame.a -o$@ $(COMPOPT) -lglfw3 -lgdi32 -lglad -lfreetype -lstrs
+	g++ $< -o$@ $(COMPOPT) -lglfw3 -lgdi32 -lglad -lfreetype -lpygame -lstrs
+
+3ddemo.exe: demo/3ddemo.cpp libpygame.a
+	g++ $< -o$@ $(COMPOPT) -lglfw3 -lgdi32 -lglad -lfreetype -lpygame -lstrs
 
 .PHONY: cleanobj clean

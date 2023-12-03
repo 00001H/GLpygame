@@ -1,32 +1,34 @@
 #include"chlibs.hpp"
 #include"gsdl.hpp"
 namespace pygame{
-    char_tex _Font::loadChar(Window& w,cppp::codepoint ch){
-        if(!charmap.contains(&w)){
-            charmap.try_emplace(&w);
-            w.atdone([this,p=&w](){
-                charmap.erase(p);
-            });
+    size_t _Font::ID{0uz};
+    sTexture load_c_tex(_ft::FT_Bitmap& bmp,Window& w){
+        static unsigned char colorbyte = 0;//doesn't get destroyed on function exit
+        if(bmp.width==0 && bmp.rows==0){
+            return sTexture{new Texture(w,&colorbyte,1,1,GL_RED,GL_RED,GL_NEAREST,GL_NEAREST,false)};
+        }else{
+            return sTexture{new Texture(w,bmp.buffer,bmp.width,bmp.rows,GL_RED,GL_RED,GL_LINEAR,GL_LINEAR,false)};
         }
-        if(charmap.at(&w).contains(ch)){
-            return &charmap.at(&w).at(ch);
+        
+    }
+    void Ch_Texture::load(Window& w){
+        if(_tex.contains(&w))return;
+        _tex.try_emplace(&w,load_c_tex(_buf,w));
+    }
+    char_tex _Font::load_char(cppp::codepoint ch){
+        if(auto it=charmap.find(ch);it!=charmap.end()){
+            return &it->second;
         }
         int x;
         if((x = _ft::FT_Load_Char(face,ch,FT_LOAD_RENDER))){
             cppp::fcerr << u8"Loadchar failed: (U+"sv << std::hex << +ch << std::dec << u8") "sv << x << std::endl;
-            throw FTError(u8"Unable to load chararcter."sv);
+            throw FTError(u8"Unable to load character."sv);
         }
         auto glyf = face->glyph;
-        auto bmap = glyf->bitmap;
-        sTexture t;
-        static unsigned char colorbyte = 0;//doesn't get destroyed on function exit
-        if(bmap.width==0 && bmap.rows==0){
-            t.reset(new Texture(w,&colorbyte,1,1,GL_RED,GL_RED,GL_NEAREST,GL_NEAREST,false));
-        }else{
-            t.reset(new Texture(w,bmap.buffer,bmap.width,bmap.rows,GL_RED,GL_RED,GL_LINEAR,GL_LINEAR,false));
-        }
-        charmap.at(&w).try_emplace(ch,std::move(t));
-        Ch_Texture& chtx = charmap.at(&w).at(ch);
+        charmap.try_emplace(ch);
+        Ch_Texture& chtx = charmap.at(ch);
+        _ft::FT_Bitmap_Init(&chtx._buf);
+        _ft::FT_Bitmap_Copy(ftlib,&glyf->bitmap,&chtx._buf);
         chtx.xoffset = float(glyf->metrics.horiBearingX)/64.0f;
         chtx.ascent = float(glyf->metrics.horiBearingY)/64.0f;
         chtx.descent = float(glyf->metrics.horiBearingY-glyf->metrics.height)/64.0f;
@@ -43,8 +45,7 @@ namespace pygame{
             if(_ft::FT_New_Face(ftlib,cppp::copy_as_plain(orfile.value()).c_str(),0,&face)){
                 throw FTRuntimeError(u8"Cannot load face!"sv);
             }
-            Font font(_font_id++,face);
-            fonts.emplace(name,std::move(font));
+            fonts.try_emplace(name,ftlib,face);
             return fonts.at(name);
         }
     }

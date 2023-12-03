@@ -8,20 +8,6 @@
 #include"postp.hpp"
 namespace pygame{
     inline Chlib chlib;
-    inline namespace constants{
-        constexpr float SW = 1920.0f;
-        constexpr float SH = 1080.0f;
-        constexpr float HSW = SW/2.0f;
-        constexpr float HSH = SH/2.0f;
-        constexpr float half_pi = glm::half_pi<float>();
-        constexpr float pi = std::numbers::pi_v<float>;
-        //https://xkcd.com/1292
-        constexpr float pau = static_cast<float>(3.141592653589793l*1.5l);
-        constexpr float tau = glm::two_pi<float>();
-        const Point SCRCNTR = {HSW,HSH};
-        const glm::vec2 SCRDIMS = {SW,SH};
-        using namespace ::pygame::color::colcon;
-    }
     inline void setup_template_0(Window& w){
         w.gl_call(glPixelStorei,GL_UNPACK_ALIGNMENT,1);
         w.gl_call(glEnable,GL_BLEND);

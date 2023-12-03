@@ -14,31 +14,7 @@ namespace pygame{
         stbi_image_free(data);
         return v;
     }
-    class LineMetrics{
-        float width;
-        float max_ascent;
-        //NEGATIVE!!
-        float min_descent;
-        public:
-            constexpr LineMetrics(float w,float ma,float md) : width(w), max_ascent(ma),
-            min_descent(md){}
-            float w() const{
-                return width;
-            }
-            float h() const{
-                return max_ascent-min_descent;
-            }
-            float asc() const{
-                return max_ascent;
-            }
-            float adsc() const{
-                return -min_descent;
-            }
-            float dsc() const{
-                return min_descent;
-            }
-    };
-    LineMetrics get_line_metrics(Window& w,Font& font,const cppp::codepoints& cps){
+    LineMetrics get_line_metrics(Font& font,const cppp::codepoints& cps){
         float textwidth=0.0f;
         float maxascent=0.0f;
         //NEGATIVE!!
@@ -46,15 +22,29 @@ namespace pygame{
         char_tex ch=nullptr;
         for(const cppp::codepoint& chr : cps){
             try{
-                ch = font.loadChar(w,chr);
+                ch = font.load_char(chr);
             }catch(FTError&){
-                ch = font.loadChar(w,'?');
+                ch = font.load_char('?');
             }
-            textwidth += ch->distance;
-            maxascent = std::max(maxascent,ch->ascent);
-            mindescent = std::min(mindescent,ch->descent);
+            textwidth += ch->dst();
+            maxascent = std::max(maxascent,ch->asc());
+            mindescent = std::min(mindescent,ch->dsc());
         }
         return {textwidth,maxascent,mindescent};
+    }
+    glm::vec2 get_text_dims(Font& f,const cppp::codepoints& cps,float* ascender,bool use_fh){
+        float wd{0.0f};
+        float ht{0.0f};
+        size_t l{0uz};
+        cppp::tokenize<char32_t>(cps,U'\n',[&](const cppp::codepoints& s,size_t){
+            LineMetrics lm{get_line_metrics(f,s)};
+            if(ascender&&!l)*ascender = lm.asc();
+            wd = std::max(wd,lm.w());
+            ht += (use_fh?f.get_height():lm.h());
+            ++l;
+            return false;
+        },false);
+        return {wd,ht};
     }
     namespace time{
         void Clock::tick(double fps){
@@ -95,9 +85,7 @@ namespace pygame{
         GLPY_PLOAD(fill_shader,u8"2d_colored_vertex.glsl"sv,u8"fill_fragment.glsl"sv);
         GLPY_PLOAD(single_color_shader,u8"2d_vertex.glsl"sv,u8"single_color_fragment.glsl"sv);
         
-#ifndef PYGAME_NO3D
         GLPY_PLOAD(texture_3d_shader,u8"3d_textured_vertex.glsl"sv,u8"3d_textured_fragment.glsl"sv);
-#endif
 #undef GLPY_PLOAD
         DrawBuffer::batch_create(*this,{&rect_db,&texture_db,&fill_db,&colored_polygon_db,&texture_3d_db});
         rect_db.initialize({
@@ -126,15 +114,12 @@ namespace pygame{
         colored_polygon_db.initialize(nullptr,800uz,GL_STREAM_DRAW);
         colored_polygon_db.vtx_attribs({2uz});
 
-#ifndef PYGAME_NO3D
         //xyz(3)+st(2)=5/vertex
         //let's support 40 vtx
         //that's 200*float
         texture_3d_db.initialize(nullptr,200uz,GL_STREAM_DRAW);
         texture_3d_db.vtx_attribs({3uz,2uz});
-#endif
     }
-#ifndef PYGAME_NO3D
     void Window::rect3D_nb_nm(const Rect3D& in,const zTexture& texture){
         texture_3d_shader.uimg("tex",texture.handle());
         texture_3d_shader.u1f("alpha",texture.alpha());
@@ -190,7 +175,6 @@ namespace pygame{
             rect3D_nb_nm(in.bottom_face(),textures.bottom);
         }
     }
-#endif
     void Window::linerect(Line in,float thickness,Color color,Shader* shader){
         if(!shader)shader = &single_color_shader;
         Point din{in};
@@ -211,11 +195,12 @@ namespace pygame{
         std::vector<cppp::codepoints> lines{cppp::split<char32_t>(cppp::codepoints_of(text),U'\n')};
         std::vector<LineMetrics> lms;
         float w{0.0f};
+        float h{0.0f};
         for(const auto& l : lines){
-            LineMetrics& lm{lms.emplace_back(get_line_metrics(*this,font,l))};
+            LineMetrics& lm{lms.emplace_back(get_line_metrics(font,l))};
             w = std::max(w,lm.w());
+            h += lm.h();
         }
-        const float h{font.get_height()*lines.size()};
         float y{0.0f};
         if(valgn==v_align::BOTTOM){
             y += h;
@@ -242,30 +227,30 @@ namespace pygame{
         float x;
         for(size_t i=0uz;i<lines.size();++i){
             x = xdelta;
-            LineMetrics lm{get_line_metrics(*this,font,lines[i])};
+            LineMetrics& lm{lms[i]};
             for(const cppp::codepoint& ch : lines[i]){
                 try{
-                    gly = font.loadChar(*this,ch);
+                    gly = font.load_char(ch);
                 }catch(FTError&){
-                    gly = font.loadChar(*this,'?');
+                    gly = font.load_char('?');
                 }
-                text_shader.uimg("img",gly->tex->handle());
-                glm::vec2 sz{gly->tex->width(),gly->tex->height()};
-                Point drwpos{x+gly->xoffset*size,y};
+                text_shader.uimg("img",gly->tex(*this)->handle());
+                glm::vec2 sz{gly->tex(*this)->width(),gly->tex(*this)->height()};
+                Point drwpos{x+gly->xoff()*size,y};
                 drwpos += position;
                 text_shader.uv2("imgdims",sz*size);
-                drwpos.y -= gly->ascent*size;
+                drwpos.y -= gly->asc()*size;
                 if(valgn==v_align::CENTER){
-                    drwpos.y -= lm.asc()*size/2.0f;
+                    drwpos.y += lm.dsc()*size;
                 }
                 if(valgn==v_align::BOTTOM){
                     drwpos.y -= lm.asc()*size;
                 }
                 text_shader.uv2("position",drwpos);
                 gl_call(glDrawArrays,GL_TRIANGLE_STRIP,0,4);
-                x += gly->distance*size;
+                x += gly->dst()*size;
             }
-            y += font.get_height()*size;
+            y += lm.h()*size;
         }
     }
     void Window::tick_repeats(){
@@ -283,13 +268,13 @@ namespace pygame{
         Window* self = winmaps.at(win);
         self->eventqueue.put(event::Event(event::MOUSEMOTION,self->toPygameCoords({x,y})));
     }
-    void Window::blit(const zTexture& image,const Point& location,float size,float rotation,
+    void Window::blit(const zTexture& image,const Point& location,glm::vec2 size,float rotation,
     const glm::vec4& rgn,Shader* shader,bool flipv){
         if(!shader)shader = &texture_shader;
         shader->use();
         shader->uimg("img",image.handle());
         shader->uv2("position",location);
-        shader->u2f("imgdims",image.width()*size,image.height()*size);
+        shader->u2f("imgdims",image.width()*size.x*(rgn.z-rgn.x),image.height()*size.y*(rgn.w-rgn.y));
         shader->u1f("rotation",-rotation);
         shader->u1f("transparency",image.alpha());
         shader->u1f("brightness",image.brightness());
