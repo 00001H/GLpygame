@@ -1,9 +1,12 @@
 #include"postp.hpp"
 namespace pygame{
-    Scene::Scene(GLsizei wid, GLsizei hgt,float scaleup) :
-        dep(GL_DEPTH24_STENCIL8, wid, hgt), 
+    Scene::Scene(Window& w,GLsizei wid, GLsizei hgt,float scaleup) :
+        wn(w),
+        fb(w),
+        tmp(w),
+        dep(w,GL_DEPTH24_STENCIL8, wid, hgt), 
         _graphics(
-            new Texture(
+            new Texture(w,
                 nullptr, wid, hgt,
                 GL_RGBA, GL_RGBA,
                 GL_NEAREST, GL_NEAREST,
@@ -11,17 +14,17 @@ namespace pygame{
             )
         ), graphics(*_graphics)
         , _tmphics(
-            new Texture(
+            new Texture(w,
                 nullptr, wid, hgt,
                 GL_RGBA, GL_RGBA,
                 GL_NEAREST, GL_NEAREST,
                 false
             )
         ), tmphics(*_tmphics)
-        , w(wid), h(hgt), sz(scaleup){
+        , w(wid), h(hgt), sz(scaleup), ksh(nullptr){
             fb.bind();
             tmp.bind();
-            Framebuffer::unbind();
+            fb.unbind();
             fb.attach_renderbuffer(GL_DEPTH_STENCIL_ATTACHMENT,dep);
             fb.attach_texture(*_graphics);
             tmp.attach_texture(*_tmphics);

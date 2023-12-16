@@ -1,9 +1,9 @@
 #ifndef GLPY_FILEUTILS_HPP
 #define GLPY_FILEUTILS_HPP
+#include<string_view>
 #include<filesystem>
-#include<cppp.hpp>
 namespace pygame{
-    std::u8string loadStringFile(const std::u8string_view);
+    std::u8string load_string_file(const std::u8string_view);
     inline bool fileexists(const std::u8string_view filename){
         return std::filesystem::exists(filename);
     }

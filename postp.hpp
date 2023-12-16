@@ -1,16 +1,23 @@
+/*
+DONE: Adapt this to the new OOP system
+TODO: Test
+*/
 #ifndef GLPY_POSTP_HPP
 #define GLPY_POSTP_HPP
+#include"constants.hpp"
 #include"gsdl.hpp"
-#include"glfwPygame.hpp"
 namespace pygame{
     using Kernal = glm::mat3;
-    inline Shader krnl;
-    inline void ppInit(){
-        krnl.program = loadprogram(u8"rsrc/2d_textured_vertex.glsl"sv,u8"rsrc/kernalfs.glsl"sv);
+    inline Shader& kernel_shader(Window& w){
+        constexpr std::u8string_view ksn{u8"kernel_sh"sv};
+        if(!w.hassh(ksn)){
+            w.addsh(ksn).loadfile(u8"rsrc/2d_textured_vertex.glsl"sv,u8"rsrc/kernalfs.glsl"sv);
+        }
+        return w.getsh(ksn);
     }
-    inline void ppApply(const zTexture& src, const Framebuffer& dst, Shader& shd=texture_shader, float sz=1.0f){
+    inline void post_process(Window& w,const zTexture& src, const Framebuffer& dst, Shader& shd,float sz=1.0f){
         dst.bind();
-        blit(src,{0.0f,0.0f},sz,0.0f,{0.0f,0.0f,1.0f,1.0f},shd,false);
+        w.blit(src,{0.0f,0.0f},(SCRDIMS/src.dims())*sz,0.0f,{0.0f,0.0f,1.0f,1.0f},&shd,false);
     }
     inline Kernal edgeDet{
         1,1,1,
@@ -23,6 +30,7 @@ namespace pygame{
         return glm::min(wmul,hmul);
     }
     class Scene{
+        Window& wn;
         Framebuffer fb;
         mutable Framebuffer tmp;
         mutable Renderbuffer dep;
@@ -34,40 +42,47 @@ namespace pygame{
         GLsizei h;
         mutable bool redrew = true;
         float sz;
+        Shader* ksh;
         public:
-            Scene(GLsizei wid, GLsizei hgt,float scaleup=1.0f);
+            Scene(Window& w,GLsizei wid, GLsizei hgt,float scaleup=1.0f);
             void bind(bool threed=false) const{
-                glViewport(0,0,w,h);
+                wn.gl_call(glViewport,0,0,w,h);
                 fb.bind();
                 if(threed){
-                    glEnable(GL_DEPTH_TEST);
-                    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+                    wn.gl_call(glEnable,GL_DEPTH_TEST);
+                    wn.gl_call(glClear,GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
                 }else{
-                    glDisable(GL_DEPTH_TEST);
-                    glClear(GL_COLOR_BUFFER_BIT);
+                    wn.gl_call(glDisable,GL_DEPTH_TEST);
+                    wn.gl_call(glClear,GL_COLOR_BUFFER_BIT);
                 }
                 redrew = true;
             }
-            void applyKernel(const Kernal& k,GLfloat off=1.0f/300.0f){
-                glDisable(GL_DEPTH_TEST);
-                krnl.um3("kernel",k);
-                krnl.u1f("offset",off);
-                ppApply(redrew?graphics:tmphics,tmp,krnl,size_fit(w,h));
+            void apply_kernel(const Kernal& k,GLfloat off=1.0f/300.0f){
+                if(!ksh){
+                    ksh = &kernel_shader(wn);
+                }
+                wn.gl_call(glDisable,GL_DEPTH_TEST);
+                ksh->um3("kernel",k);
+                ksh->u1f("offset",off);
+                post_process(wn,redrew?graphics:tmphics,tmp,*ksh);
                 redrew = false;
+            }
+            void apply(Shader& s){
+                post_process(wn,redrew?graphics:tmphics,tmp,s);
             }
             void alpha(float a){
                 graphics.alpha() = a;
             }
             void draw(Point pos={0.0f, 0.0f},GLsizei dw=0, GLsizei dh=0) const{
-                glDisable(GL_DEPTH_TEST);
-                Framebuffer::unbind();
+                wn.gl_call(glDisable,GL_DEPTH_TEST);
+                fb.unbind();
                 if(dw!=0&&dh!=0){
-                    glViewport(0,0,dw,dh);
-                }else if(display::glCtx){
-                    display::glCtx->restore_viewport();
+                    wn.gl_call(glViewport,0,0,dw,dh);
+                }else if(gl_context){
+                    gl_context->restore_viewport();
                 }
-                glClear(GL_COLOR_BUFFER_BIT);
-                blit(tmphics,pos,sz,0.0f,{0.0f,0.0f,1.0f,1.0f},texture_shader,false);
+                wn.gl_call(glClear,GL_COLOR_BUFFER_BIT);
+                wn.blit(tmphics,pos,{sz,sz},0.0f,{0.0f,0.0f,1.0f,1.0f},nullptr,false);
             }
             Scene(const Scene&) = delete;
     };

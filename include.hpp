@@ -3,11 +3,13 @@
 #include<unordered_map>
 #include<filesystem>
 #include<sys/stat.h>
+#include<functional>
 #include<stdexcept>
 #include<algorithm>
 #include<iostream>
 #include<optional>
-#include<cppp.hpp>
+#include<cppp/strings/strings.hpp>
+#include<cppp/binary/binary.hpp>
 #include<fstream>
 #include<string>
 #include<memory>
@@ -29,9 +31,11 @@ namespace pygame{
     using glm::vec4;
     typedef vec2 Point;
     typedef vec4 Color;
+    class Window;
     struct Line{
         Point a;
         Point b;
+        Line() : a(0.0f), b(0.0f){}
         Line(Point a,Point b) : a(a), b(b) {}
         operator glm::vec2() const{
             return b-a;
@@ -39,6 +43,26 @@ namespace pygame{
         float length() const{
             return glm::distance(a,b);
         }
+        float squared_length() const{
+            return glm::dot(b-a,b-a);
+        }
+        pygame::Line translate(glm::vec2 d) const{
+            return {a+d,b+d};
+        }
+        float squared_dist(Point p) const{
+            return _square((b.x-a.x)*(a.y-p.y)-(b.y-a.y)*(a.x-p.x))/squared_length();
+        }
+        bool above_point(Point p) const{
+            const bool dr{a.x<b.x};
+            const Point& ax{dr?a:b};
+            const Point& bx{dr?b:a};
+            if(p.x<ax.x||p.x>bx.x)return false;
+            return p.y > ((p.x-ax.x)/(bx.x-ax.x)*(bx.y-ax.y)+ax.y);
+        }
+        private:
+            inline static float _square(float f){
+                return f*f;
+            }
     };
     class Rect{
         Point loc;
@@ -47,8 +71,8 @@ namespace pygame{
             constexpr Rect() : loc(0.0f), _dims(0.0f){}
             constexpr Rect(float x,float y,float w,float h) : loc(x,y), _dims(w,h){}
             constexpr Rect(Point pos, glm::vec2 dims) : loc(pos), _dims(dims){}
-            const Point& ltop() const{
-                return loc;
+            Rect shrink(glm::vec2 by) const{
+                return {loc+by,_dims-by-by};
             }
             const Point& pos() const{
                 return loc;
@@ -112,6 +136,21 @@ namespace pygame{
             float bottom() const{
                 return top()+height();
             }
+            Point ltop() const{
+                return loc;
+            }
+            Point rtop() const{
+                return {right(),top()};
+            }
+            Point ctop() const{
+                return {left()+width()/2.0f,top()};
+            }
+            Point lbot() const{
+                return {left(),bottom()};
+            }
+            Point rbot() const{
+                return {right(),bottom()};
+            }
             bool colliderect(Rect other) const{
                 return ((left()<other.right())//left is lefter than other right
                     &&(right()>other.left())//right is righter than other left
@@ -125,5 +164,9 @@ namespace pygame{
                     &&(point.y>top()));//bottomer than top
             }
     };
+    class Texture;
+    using mpTexture = Texture*;
+    using pTexture = const Texture*;
+    using sTexture = std::unique_ptr<Texture>;
 }
 #endif
