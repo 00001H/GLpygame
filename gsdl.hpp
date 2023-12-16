@@ -199,7 +199,7 @@ namespace pygame{
             }
     };
     LineMetrics get_line_metrics(Font&,const cppp::codepoints&);
-    glm::vec2 get_text_dims(Font&,const cppp::codepoints&,float* asc=nullptr,bool=false);
+    glm::vec2 get_text_dims(Font&,const cppp::codepoints&,float* asc=nullptr,bool use_fh=false);
     namespace time{
         class Clock{
             private:
@@ -499,7 +499,7 @@ namespace pygame{
             }
             void draw_text(Font& font,std::u8string_view text,const Point& position,
                         const Color& color={1.0f,1.0f,1.0f,1.0},float size=1.0f,
-                        align algn=align::LEFT, v_align valgn=v_align::TOP);
+                        align algn=align::LEFT, v_align valgn=v_align::TOP,bool use_fh=false);
             template<typename Fp,typename ...A>
             inline std::invoke_result_t<Fp,A...> gl_call(Fp fun,A&& ...ca){
                 if(gl_context!=this)set_as_OpenGL_target();

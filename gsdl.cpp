@@ -187,7 +187,7 @@ namespace pygame{
         shader->u2f("rotation_center",0.5f,0.5f);
     }
     void Window::draw_text(Font& font,std::u8string_view text,const Point& position,
-                const Color& color,float size,align algn,v_align valgn){
+                const Color& color,float size,align algn,v_align valgn,bool use_fh){
         rect_db.bind();
         text_shader.use();
         text_shader.uv4("color",color);
@@ -199,7 +199,7 @@ namespace pygame{
         for(const auto& l : lines){
             LineMetrics& lm{lms.emplace_back(get_line_metrics(font,l))};
             w = std::max(w,lm.w());
-            h += lm.h();
+            h += (use_fh?font.get_height():lm.h());
         }
         float y{0.0f};
         if(valgn==v_align::BOTTOM){
@@ -250,7 +250,7 @@ namespace pygame{
                 gl_call(glDrawArrays,GL_TRIANGLE_STRIP,0,4);
                 x += gly->dst()*size;
             }
-            y += lm.h()*size;
+            y += (use_fh?font.get_height():lm.h())*size;
         }
     }
     void Window::tick_repeats(){

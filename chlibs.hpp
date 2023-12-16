@@ -71,7 +71,13 @@ namespace pygame{
                 charmap.clear();
             }
             float get_height() const{
-                return float(face->size->metrics.height)/64.0f;
+                return get_ascender()-get_descender();
+            }
+            float get_ascender() const{
+                return float(face->size->metrics.ascender)/64.0f;
+            }
+            float get_descender() const{
+                return float(face->size->metrics.descender)/64.0f;
             }
             char_tex load_char(cppp::codepoint);
             void done(){
@@ -93,6 +99,14 @@ namespace pygame{
             }
             ~Font(){
                 destroy();
+            }
+            float get_ascender() const{
+                if(pimpl!=nullptr)return pimpl->get_ascender();
+                else throw std::bad_optional_access();
+            }
+            float get_descender() const{
+                if(pimpl!=nullptr)return pimpl->get_descender();
+                else throw std::bad_optional_access();
             }
             float get_height() const{
                 if(pimpl!=nullptr)return pimpl->get_height();
